@@ -67,32 +67,27 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const userId = normalizeText(searchParams.get("userId") ?? undefined);
 
-    if (!userId) {
-      return NextResponse.json(
-        { message: "Falta el userId para consultar las reparaciones." },
-        { status: 400 },
-      );
-    }
-
     const [repairRows, workshopRows] = await Promise.all([
-      prisma.$queryRaw<RepairViewRow[]>(Prisma.sql`
-        SELECT
-          id_reparacion,
-          id_publicacion,
-          nombre_item,
-          nombre_categoria,
-          descripcion_problema,
-          costo_estimado_min,
-          costo_estimado_max,
-          estado_reparacion,
-          nombre_taller,
-          fecha_solicitud,
-          fecha_cotizacion,
-          fecha_finalizacion
-        FROM "recyclapp_schema"."v_t_reparacion"
-        WHERE id_usuario_solicitante = CAST(${userId} AS uuid)
-        ORDER BY COALESCE(fecha_cotizacion, fecha_solicitud, fecha_creacion) DESC
-      `),
+      userId
+        ? prisma.$queryRaw<RepairViewRow[]>(Prisma.sql`
+            SELECT
+              id_reparacion,
+              id_publicacion,
+              nombre_item,
+              nombre_categoria,
+              descripcion_problema,
+              costo_estimado_min,
+              costo_estimado_max,
+              estado_reparacion,
+              nombre_taller,
+              fecha_solicitud,
+              fecha_cotizacion,
+              fecha_finalizacion
+            FROM "recyclapp_schema"."v_t_reparacion"
+            WHERE id_usuario_solicitante = CAST(${userId} AS uuid)
+            ORDER BY COALESCE(fecha_cotizacion, fecha_solicitud, fecha_creacion) DESC
+          `)
+        : Promise.resolve([]),
       prisma.$queryRaw<WorkshopViewRow[]>(Prisma.sql`
         SELECT
           id_taller_reparacion,

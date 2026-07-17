@@ -136,6 +136,9 @@ export interface Notification {
   timestamp: string;
   read: boolean;
   type: "success" | "info" | "warning";
+  category?: "system" | "message";
+  targetTab?: string;
+  targetConversationId?: string;
 }
 
 export interface UserLocationSnapshot {

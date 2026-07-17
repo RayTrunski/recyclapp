@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Recycle,
   User,
@@ -21,7 +21,8 @@ interface NavbarProps {
   setActiveTab: (tab: string) => void;
   onLogout: () => void;
   onLoginClick: () => void;
-  onNotificationRead: (id: string) => void;
+  onNotificationRead: (notification: Notification) => void;
+  onNotificationOpen: (notification: Notification) => void;
 }
 
 export default function Navbar({
@@ -32,11 +33,60 @@ export default function Navbar({
   onLogout,
   onLoginClick,
   onNotificationRead,
+  onNotificationOpen,
 }: NavbarProps) {
   const [showNotifDropdown, setShowNotifDropdown] = useState(false);
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
+  const notificationListRef = useRef<HTMLDivElement | null>(null);
+  const notificationItemRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   const unreadCount = notifications.filter((n) => !n.read).length;
+  const notificationLookup = useMemo(
+    () => Object.fromEntries(notifications.map((notification) => [notification.id, notification])),
+    [notifications],
+  );
+
+  useEffect(() => {
+    if (!showNotifDropdown || !notificationListRef.current) {
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (!entry.isIntersecting) {
+            return;
+          }
+
+          const notificationId = entry.target.getAttribute("data-notification-id");
+          if (!notificationId) {
+            return;
+          }
+
+          const notification = notificationLookup[notificationId];
+          if (notification && !notification.read) {
+            onNotificationRead(notification);
+          }
+        });
+      },
+      {
+        root: notificationListRef.current,
+        threshold: 0.65,
+      },
+    );
+
+    Object.entries(notificationItemRefs.current).forEach(([id, element]) => {
+      if (!element || !notificationLookup[id]) {
+        return;
+      }
+
+      observer.observe(element);
+    });
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [notificationLookup, onNotificationRead, showNotifDropdown]);
 
   const mainNavItems = [
     { label: "Inicio", id: "inicio", icon: Recycle },
@@ -44,8 +94,8 @@ export default function Navbar({
     { label: "Donar / Reciclar", id: "publicar", icon: Heart },
     { label: "Recolecciones", id: "recolecciones", icon: Calendar },
     { label: "Reparaciones", id: "reparaciones", icon: Wrench },
-    { label: "Mensajería", id: "mensajeria", icon: MessageSquare },
     { label: "Centros", id: "centros", icon: MapPin },
+    { label: "Mensajería", id: "mensajeria", icon: MessageSquare },
     { label: "Estadísticas", id: "estadisticas", icon: BarChart3 },
   ];
 
@@ -60,15 +110,16 @@ export default function Navbar({
               setActiveTab("inicio");
             }}
           >
-            <div className="w-10 h-10 rounded-xl bg-linear-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-md shadow-emerald-200">
-              <Recycle className="w-5.5 h-5.5 text-white animate-spin-slow" />
-            </div>
-            <div>
-              <span className="font-display text-xl font-bold tracking-tight text-slate-800 flex items-center gap-1">
-                ReCyC<span className="text-emerald-600">lapp</span>
-              </span>
-              <span className="block text-[9px] text-emerald-700 font-medium tracking-widest uppercase -mt-1 font-mono"></span>
-            </div>
+            <img
+              src="/logos/logoRecyclapp.png"
+              alt="Logo ReCyClapp"
+              className="h-10 w-auto object-contain"
+            />
+            <img
+              src="/logos/logoTexto.png"
+              alt="ReCyClapp"
+              className="h-8 w-auto object-contain"
+            />
           </div>
 
           {/* Navigation Links */}
@@ -130,7 +181,10 @@ export default function Navbar({
                       {unreadCount} nuevas
                     </span>
                   </div>
-                  <div className="max-h-64 overflow-y-auto scrollbar-thin divide-y divide-slate-50">
+                  <div
+                    ref={notificationListRef}
+                    className="max-h-64 overflow-y-auto scrollbar-thin divide-y divide-slate-50"
+                  >
                     {notifications.length === 0 ? (
                       <div className="px-4 py-6 text-center text-slate-400 text-xs">
                         No tienes notificaciones
@@ -139,8 +193,12 @@ export default function Navbar({
                       notifications.map((notif) => (
                         <div
                           key={notif.id}
+                          ref={(element) => {
+                            notificationItemRefs.current[notif.id] = element;
+                          }}
+                          data-notification-id={notif.id}
                           onClick={() => {
-                            onNotificationRead(notif.id);
+                            onNotificationOpen(notif);
                             setShowNotifDropdown(false);
                           }}
                           className={`px-4 py-2.5 hover:bg-slate-50 transition-colors cursor-pointer text-xs ${

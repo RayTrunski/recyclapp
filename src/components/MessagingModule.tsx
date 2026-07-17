@@ -1,23 +1,36 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import dynamic from "next/dynamic";
 import {
   Clock3,
+  LoaderCircle,
+  LocateFixed,
   MapPin,
   MessageSquare,
+  Radio,
   Send,
   ShieldCheck,
   UserRound,
   Wrench,
-  LoaderCircle,
-  LocateFixed,
-  Radio,
+  X,
 } from "lucide-react";
 
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import type {
   ConversationDetail,
+  ConversationMessageRecord,
   ConversationSummary,
+  UserLocationSnapshot,
   UserProfile,
 } from "../types";
+
+const SharedLocationMap = dynamic(() => import("./SharedLocationMap"), {
+  ssr: false,
+  loading: () => (
+    <div className="flex h-[360px] items-center justify-center text-sm text-slate-500">
+      Cargando mapa...
+    </div>
+  ),
+});
 
 interface MessagingModuleProps {
   currentUser: UserProfile | null;
@@ -61,7 +74,7 @@ function buildMessagePreview(conversation: ConversationSummary) {
   }
 
   if (conversation.lastMessage.messageType === "LOCATION") {
-    return "Ubicación compartida en tiempo real.";
+    return "Ubicación compartida lista para abrir en mapa.";
   }
 
   return conversation.lastMessage.body || "Mensaje sin contenido visible.";
@@ -99,26 +112,77 @@ function formatCoordinate(value: number) {
   return value.toFixed(5);
 }
 
-function getMiniMapPositions(
-  coordinates: Array<{ latitude: number; longitude: number }>,
-) {
-  if (coordinates.length === 0) {
-    return [];
+function readApiError(payload: unknown, fallbackMessage: string) {
+  if (
+    payload &&
+    typeof payload === "object" &&
+    "message" in payload &&
+    typeof payload.message === "string"
+  ) {
+    return payload.message;
   }
 
-  const latitudes = coordinates.map((point) => point.latitude);
-  const longitudes = coordinates.map((point) => point.longitude);
-  const minLat = Math.min(...latitudes);
-  const maxLat = Math.max(...latitudes);
-  const minLng = Math.min(...longitudes);
-  const maxLng = Math.max(...longitudes);
-  const latSpan = Math.max(maxLat - minLat, 0.01);
-  const lngSpan = Math.max(maxLng - minLng, 0.01);
+  return fallbackMessage;
+}
 
-  return coordinates.map((point) => ({
-    left: 12 + ((point.longitude - minLng) / lngSpan) * 76,
-    top: 12 + ((maxLat - point.latitude) / latSpan) * 76,
-  }));
+function extractCreatedMessageId(payload: unknown) {
+  if (
+    payload &&
+    typeof payload === "object" &&
+    "message" in payload &&
+    payload.message &&
+    typeof payload.message === "object" &&
+    "id" in payload.message &&
+    typeof payload.message.id === "string"
+  ) {
+    return payload.message.id;
+  }
+
+  return "";
+}
+
+function sameCoordinates(
+  first:
+    | {
+        latitude: number;
+        longitude: number;
+      }
+    | null
+    | undefined,
+  second:
+    | {
+        latitude: number;
+        longitude: number;
+      }
+    | null
+    | undefined,
+) {
+  if (!first || !second) {
+    return false;
+  }
+
+  return (
+    Math.abs(first.latitude - second.latitude) < 0.00001 &&
+    Math.abs(first.longitude - second.longitude) < 0.00001
+  );
+}
+
+function buildLocationSummary(
+  location: UserLocationSnapshot | ConversationMessageRecord["location"],
+) {
+  if (!location) {
+    return "Sin ubicación disponible.";
+  }
+
+  return `Lat ${formatCoordinate(location.latitude)} · Lng ${formatCoordinate(location.longitude)}`;
+}
+
+function notifyConversationStateChanged() {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.dispatchEvent(new Event("recyclapp:conversation-sync"));
 }
 
 export default function MessagingModule({
@@ -130,6 +194,8 @@ export default function MessagingModule({
   const [selectedConversationId, setSelectedConversationId] = useState("");
   const [activeConversation, setActiveConversation] =
     useState<ConversationDetail | null>(null);
+  const [selectedLocationMessageId, setSelectedLocationMessageId] =
+    useState("");
   const [draftMessage, setDraftMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isSending, setIsSending] = useState(false);
@@ -170,7 +236,10 @@ export default function MessagingModule({
     });
   }
 
-  async function loadConversationDetail(userId: string, conversationId: string) {
+  async function loadConversationDetail(
+    userId: string,
+    conversationId: string,
+  ) {
     const response = await fetch(
       `/api/conversations/${conversationId}?userId=${encodeURIComponent(userId)}`,
     );
@@ -195,6 +264,8 @@ export default function MessagingModule({
         },
         body: JSON.stringify({ userId }),
       });
+
+      notifyConversationStateChanged();
     }
   }
 
@@ -234,6 +305,10 @@ export default function MessagingModule({
   }, [currentUser]);
 
   useEffect(() => {
+    setSelectedLocationMessageId("");
+  }, [selectedConversationId]);
+
+  useEffect(() => {
     if (!currentUser || !selectedConversationId) {
       setActiveConversation(null);
       return;
@@ -264,6 +339,21 @@ export default function MessagingModule({
   }, [currentUser, selectedConversationId]);
 
   useEffect(() => {
+    if (!activeConversation || !selectedLocationMessageId) {
+      return;
+    }
+
+    const stillExists = activeConversation.messages.some(
+      (message) =>
+        message.id === selectedLocationMessageId && message.location != null,
+    );
+
+    if (!stillExists) {
+      setSelectedLocationMessageId("");
+    }
+  }, [activeConversation, selectedLocationMessageId]);
+
+  useEffect(() => {
     if (!currentUser) {
       return;
     }
@@ -287,7 +377,10 @@ export default function MessagingModule({
           await loadConversations(currentUser.id);
 
           if (selectedConversationId) {
-            await loadConversationDetail(currentUser.id, selectedConversationId);
+            await loadConversationDetail(
+              currentUser.id,
+              selectedConversationId,
+            );
           }
         },
       )
@@ -377,18 +470,45 @@ export default function MessagingModule({
   const peerParticipant = activeConversation?.participants.find(
     (participant) => participant.userId !== currentUser?.id,
   );
-  const participantLocations =
-    activeConversation?.participants
-      .filter((participant) => participant.lastLocation)
-      .map((participant) => ({
-        userId: participant.userId,
-        name:
-          participant.userId === currentUser?.id
-            ? "Tú"
-            : participant.name.split(" ")[0] || participant.name,
-        ...participant.lastLocation!,
-      })) ?? [];
-  const miniMapPositions = getMiniMapPositions(participantLocations);
+  const locationMessages =
+    activeConversation?.messages.filter((message) => message.location) ?? [];
+  const selectedLocationMessage =
+    activeConversation?.messages.find(
+      (message) =>
+        message.id === selectedLocationMessageId && message.location != null,
+    ) ?? null;
+  const selectedLocationParticipant =
+    activeConversation?.participants.find(
+      (participant) =>
+        participant.userId === selectedLocationMessage?.senderUserId,
+    ) ?? null;
+  const selectedSenderLastLocation =
+    selectedLocationParticipant?.lastLocation ?? null;
+  const showLatestSenderMarker =
+    Boolean(selectedLocationMessage?.location) &&
+    Boolean(selectedSenderLastLocation) &&
+    !sameCoordinates(
+      selectedLocationMessage?.location,
+      selectedSenderLastLocation,
+    );
+
+  useEffect(() => {
+    if (!selectedLocationMessageId) {
+      return;
+    }
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setSelectedLocationMessageId("");
+      }
+    };
+
+    window.addEventListener("keydown", handleEscape);
+
+    return () => {
+      window.removeEventListener("keydown", handleEscape);
+    };
+  }, [selectedLocationMessageId]);
 
   const handleSendMessage = async (event: FormEvent) => {
     event.preventDefault();
@@ -416,17 +536,18 @@ export default function MessagingModule({
         },
       );
 
-      const payload = (await response.json()) as { message?: string };
+      const payload = (await response.json()) as unknown;
 
       if (!response.ok) {
         throw new Error(
-          payload.message || "No fue posible enviar el mensaje de texto.",
+          readApiError(payload, "No fue posible enviar el mensaje de texto."),
         );
       }
 
       setDraftMessage("");
       await loadConversations(currentUser.id);
       await loadConversationDetail(currentUser.id, selectedConversationId);
+      notifyConversationStateChanged();
     } catch (error) {
       setErrorMessage(
         error instanceof Error
@@ -470,21 +591,27 @@ export default function MessagingModule({
                 latitude: position.coords.latitude,
                 longitude: position.coords.longitude,
                 accuracyMeters: position.coords.accuracy,
-                locationLabel: `Lat ${formatCoordinate(position.coords.latitude)}, Lng ${formatCoordinate(position.coords.longitude)}`,
+                locationLabel: `Lat ${formatCoordinate(position.coords.latitude)} · Lng ${formatCoordinate(position.coords.longitude)}`,
               }),
             },
           );
 
-          const payload = (await response.json()) as { message?: string };
+          const payload = (await response.json()) as unknown;
 
           if (!response.ok) {
             throw new Error(
-              payload.message || "No fue posible compartir la ubicación.",
+              readApiError(payload, "No fue posible compartir la ubicación."),
             );
+          }
+
+          const createdMessageId = extractCreatedMessageId(payload);
+          if (createdMessageId) {
+            setSelectedLocationMessageId(createdMessageId);
           }
 
           await loadConversations(currentUser.id);
           await loadConversationDetail(currentUser.id, selectedConversationId);
+          notifyConversationStateChanged();
         } catch (error) {
           setErrorMessage(
             error instanceof Error
@@ -546,76 +673,77 @@ export default function MessagingModule({
   }
 
   return (
-    <section className="flex flex-col gap-6">
-      <div className="rounded-[2rem] border border-slate-100 bg-linear-to-r from-slate-950 via-slate-900 to-emerald-900 p-8 text-white shadow-xl shadow-slate-900/10">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em]">
-              <MessageSquare className="h-3.5 w-3.5" />
-              Centro de coordinación
-            </div>
-            <h2 className="mt-4 font-display text-3xl font-black tracking-tight">
-              Mensajería real con ubicación compartida y presencia en vivo.
-            </h2>
-            <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-200">
-              Cada conversación queda vinculada a una publicación y lista para
-              usar `getCurrentPosition()` cuando necesites compartir punto de
-              encuentro.
-            </p>
-          </div>
-
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="rounded-3xl border border-white/10 bg-white/10 p-4 backdrop-blur-sm">
-              <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-emerald-100/80">
-                Conversaciones activas
-              </p>
-              <div className="mt-2 text-3xl font-black">
-                {conversations.length}
+    <>
+      <section className="flex flex-col gap-6">
+        <div className="rounded-[2rem] border border-slate-100 bg-linear-to-r from-slate-950 via-slate-900 to-emerald-900 p-8 text-white shadow-xl shadow-slate-900/10">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em]">
+                <MessageSquare className="h-3.5 w-3.5" />
+                Centro de coordinación
               </div>
-              <p className="mt-1 text-xs text-slate-200">
-                Hilos asociados a publicaciones reales.
+              <h2 className="mt-4 font-display text-3xl font-black tracking-tight">
+                Mensajería real con ubicación compartida y mapa abierto bajo
+                demanda.
+              </h2>
+              <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-200">
+                Cada mensaje conserva su snapshot de ubicación y la última
+                posición viva del usuario se actualiza por separado en Supabase.
               </p>
             </div>
-            <div className="rounded-3xl border border-white/10 bg-white/10 p-4 backdrop-blur-sm">
-              <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-emerald-100/80">
-                Realtime
-              </p>
-              <div className="mt-2 flex items-center gap-2 text-lg font-black">
-                <Radio className="h-4 w-4 text-emerald-300" />
-                {realtimeReady ? "Conectado" : "Sin sesión realtime"}
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="rounded-3xl border border-white/10 bg-white/10 p-4 backdrop-blur-sm">
+                <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-emerald-100/80">
+                  Conversaciones activas
+                </p>
+                <div className="mt-2 text-3xl font-black">
+                  {conversations.length}
+                </div>
+                <p className="mt-1 text-xs text-slate-200">
+                  Hilos asociados a publicaciones reales.
+                </p>
               </div>
-              <p className="mt-1 text-xs text-slate-200">
-                Presence y actualizaciones desde Supabase Realtime.
-              </p>
+              <div className="rounded-3xl border border-white/10 bg-white/10 p-4 backdrop-blur-sm">
+                <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-emerald-100/80">
+                  Realtime
+                </p>
+                <div className="mt-2 flex items-center gap-2 text-lg font-black">
+                  <Radio className="h-4 w-4 text-emerald-300" />
+                  {realtimeReady ? "Conectado" : "Sin sesión realtime"}
+                </div>
+                <p className="mt-1 text-xs text-slate-200">
+                  Presence y sincronización instantánea desde Supabase.
+                </p>
+              </div>
             </div>
           </div>
         </div>
-      </div>
 
-      {errorMessage && (
-        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-          {errorMessage}
-        </div>
-      )}
+        {errorMessage && (
+          <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            {errorMessage}
+          </div>
+        )}
 
-      {!realtimeReady && (
-        <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600">
-          La sesión principal está abierta, pero Supabase Realtime no detecta
-          una sesión activa. Puedes seguir usando el hilo, aunque la presencia
-          online y la sincronización instantánea podrían requerir volver a
-          iniciar sesión.
-        </div>
-      )}
+        {!realtimeReady && (
+          <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600">
+            La sesión principal está abierta, pero Supabase Realtime no detecta
+            una sesión activa. Puedes seguir usando el hilo, aunque la presencia
+            online y la sincronización instantánea podrían requerir volver a
+            iniciar sesión.
+          </div>
+        )}
 
-      <div className="grid gap-6 xl:grid-cols-[0.92fr_1.08fr]">
-        <div className="rounded-[2rem] border border-slate-100 bg-white p-5 shadow-xs">
+        <div className="grid gap-6 xl:grid-cols-[minmax(290px,0.68fr)_minmax(0,1.32fr)]">
+          <div className="rounded-[2rem] border border-slate-100 bg-white p-4 shadow-xs">
           <div className="flex items-center justify-between gap-3 border-b border-slate-100 px-1 pb-4">
             <div>
-              <h3 className="font-display text-xl font-semibold text-slate-900">
+              <h3 className="font-display text-lg font-semibold text-slate-900">
                 Bandeja prioritaria
               </h3>
               <p className="mt-1 text-sm text-slate-500">
-                Conversaciones listas para coordinar acción.
+                Hilos listos para coordinar acción.
               </p>
             </div>
             <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-semibold text-slate-600">
@@ -644,7 +772,7 @@ export default function MessagingModule({
                   <button
                     key={conversation.id}
                     onClick={() => setSelectedConversationId(conversation.id)}
-                    className={`w-full rounded-3xl border p-4 text-left transition-all ${
+                    className={`w-full rounded-[1.7rem] border p-3.5 text-left transition-all ${
                       isActive
                         ? "border-emerald-200 bg-emerald-50/70 shadow-sm"
                         : "border-slate-100 bg-slate-50/70 hover:border-slate-200 hover:bg-white"
@@ -653,9 +781,9 @@ export default function MessagingModule({
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex items-start gap-3">
                         <div className="rounded-2xl bg-white p-3 text-slate-700 shadow-sm">
-                          <Icon className="h-4.5 w-4.5" />
+                          <Icon className="h-4 w-4" />
                         </div>
-                        <div>
+                        <div className="min-w-0">
                           <div
                             className={`inline-flex rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.18em] ${accent}`}
                           >
@@ -663,11 +791,11 @@ export default function MessagingModule({
                               ? "Publicación vinculada"
                               : "Coordinación"}
                           </div>
-                          <h4 className="mt-3 font-display text-lg font-semibold text-slate-900">
+                          <h4 className="mt-3 line-clamp-1 font-display text-xl font-semibold text-slate-900">
                             {conversation.otherParticipant?.name ??
                               conversation.subject}
                           </h4>
-                          <p className="mt-1 text-sm text-slate-500">
+                          <p className="mt-1 line-clamp-1 text-sm text-slate-500">
                             {conversation.listingTitle ?? conversation.subject}
                           </p>
                         </div>
@@ -680,7 +808,7 @@ export default function MessagingModule({
                       )}
                     </div>
 
-                    <p className="mt-4 text-sm leading-6 text-slate-600">
+                    <p className="mt-4 line-clamp-2 text-sm leading-6 text-slate-600">
                       {buildMessagePreview(conversation)}
                     </p>
 
@@ -715,11 +843,11 @@ export default function MessagingModule({
           )}
         </div>
 
-        <div className="rounded-[2rem] border border-slate-100 bg-white p-5 shadow-xs">
+          <div className="rounded-[2rem] border border-slate-100 bg-white p-5 shadow-xs">
           {!activeConversation ? (
             <div className="flex min-h-[420px] items-center justify-center rounded-[1.75rem] border border-dashed border-slate-200 bg-slate-50 p-8 text-center text-sm leading-7 text-slate-500">
               Selecciona una conversación para ver el historial, compartir tu
-              ubicación y revisar presencia online.
+              ubicación y abrir en mapa cualquier snapshot enviado.
             </div>
           ) : (
             <>
@@ -728,7 +856,9 @@ export default function MessagingModule({
                   <div
                     className={`inline-flex rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.18em] ${getConversationAccent(activeConversation.subject)}`}
                   >
-                    {activeSummary?.listingTitle ? "Publicación" : "Hilo activo"}
+                    {activeSummary?.listingTitle
+                      ? "Publicación"
+                      : "Hilo activo"}
                   </div>
                   <h3 className="mt-3 font-display text-2xl font-semibold text-slate-900">
                     {peerParticipant?.name ?? activeConversation.subject}
@@ -762,8 +892,8 @@ export default function MessagingModule({
                 </div>
               </div>
 
-              <div className="mt-5 grid gap-5 xl:grid-cols-[1.15fr_0.85fr]">
-                <div className="space-y-4">
+              <div className="mt-5 space-y-5">
+                <div className="max-h-[34rem] space-y-4 overflow-y-auto pr-1 scrollbar-thin">
                   {activeConversation.messages.length === 0 ? (
                     <div className="rounded-3xl border border-dashed border-slate-200 bg-slate-50 p-6 text-sm text-slate-500">
                       Este hilo todavía no tiene mensajes.
@@ -771,6 +901,9 @@ export default function MessagingModule({
                   ) : (
                     activeConversation.messages.map((message) => {
                       const isMine = message.senderUserId === currentUser.id;
+                      const isSelectedLocation =
+                        selectedLocationMessageId === message.id &&
+                        message.location != null;
 
                       return (
                         <div
@@ -778,7 +911,7 @@ export default function MessagingModule({
                           className={`flex ${isMine ? "justify-end" : "justify-start"}`}
                         >
                           <div
-                            className={`max-w-[88%] rounded-3xl px-4 py-3 text-sm leading-6 shadow-sm ${
+                            className={`max-w-[92%] rounded-3xl px-4 py-3 text-sm leading-6 shadow-sm lg:max-w-[78%] ${
                               isMine
                                 ? "bg-emerald-600 text-white"
                                 : "border border-slate-100 bg-slate-50 text-slate-700"
@@ -791,24 +924,38 @@ export default function MessagingModule({
                             >
                               {isMine ? "Tú" : message.senderName}
                             </div>
-                            {message.body && <p className="mt-1">{message.body}</p>}
+                            {message.body && (
+                              <p className="mt-1">{message.body}</p>
+                            )}
 
                             {message.location && (
-                              <div
-                                className={`mt-3 rounded-2xl px-3 py-2 text-xs ${
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setSelectedLocationMessageId(message.id)
+                                }
+                                className={`mt-3 block w-full rounded-2xl border px-3 py-3 text-left text-xs transition ${
                                   isMine
-                                    ? "bg-emerald-500/40 text-emerald-50"
-                                    : "bg-white text-slate-600"
+                                    ? isSelectedLocation
+                                      ? "border-emerald-100 bg-emerald-500/50 text-emerald-50"
+                                      : "border-transparent bg-emerald-500/35 text-emerald-50 hover:bg-emerald-500/50"
+                                    : isSelectedLocation
+                                      ? "border-emerald-200 bg-emerald-50 text-slate-700"
+                                      : "border-slate-200 bg-white text-slate-600 hover:border-emerald-200 hover:bg-emerald-50/60"
                                 }`}
                               >
-                                <div className="flex items-center gap-2 font-semibold">
-                                  <MapPin className="h-3.5 w-3.5" />
-                                  Ubicación compartida
+                                <div className="flex items-center justify-between gap-3">
+                                  <div className="flex items-center gap-2 font-semibold">
+                                    <MapPin className="h-3.5 w-3.5" />
+                                    Ubicación compartida
+                                  </div>
+                                  <span className="text-[10px] font-bold uppercase tracking-[0.18em]">
+                                    Abrir mapa
+                                  </span>
                                 </div>
                                 <div className="mt-2 space-y-1">
                                   <p>
-                                    Lat {formatCoordinate(message.location.latitude)} ·
-                                    Lng {formatCoordinate(message.location.longitude)}
+                                    {buildLocationSummary(message.location)}
                                   </p>
                                   <p>
                                     Precisión:{" "}
@@ -817,7 +964,7 @@ export default function MessagingModule({
                                       : "No disponible"}
                                   </p>
                                 </div>
-                              </div>
+                              </button>
                             )}
 
                             <div
@@ -834,156 +981,194 @@ export default function MessagingModule({
                   )}
                 </div>
 
-                <div className="space-y-4">
-                  <div className="overflow-hidden rounded-[1.75rem] border border-emerald-100 bg-linear-to-br from-emerald-50 via-white to-teal-50 p-4">
-                    <div className="flex items-center justify-between gap-3">
-                      <div>
-                        <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-emerald-700">
-                          Mapa del hilo
-                        </p>
-                        <h4 className="mt-2 font-display text-lg font-semibold text-slate-900">
-                          Últimas posiciones conocidas
-                        </h4>
-                      </div>
-                      <LocateFixed className="h-5 w-5 text-emerald-700" />
+                <div className="rounded-[1.5rem] border border-dashed border-slate-200 bg-slate-50 px-4 py-4 text-sm text-slate-500">
+                  {locationMessages.length > 0
+                    ? "Haz click en cualquier bloque de ubicación compartida para abrir el mapa en un modal sin mover el hilo."
+                    : "Cuando alguien comparta su ubicación desde el chat, podrás abrir el mapa en un modal desde ese mensaje."}
+                </div>
+
+                <form
+                  onSubmit={handleSendMessage}
+                  className="rounded-[1.75rem] border border-slate-100 bg-slate-50/80 p-4"
+                >
+                  <div className="flex flex-col gap-4 lg:flex-row lg:items-end">
+                    <div className="flex-1">
+                      <label className="text-sm font-semibold text-slate-900">
+                        Respuesta rápida
+                      </label>
+                      <p className="mt-1 text-sm text-slate-500">
+                        El historial queda almacenado y se actualiza en tiempo
+                        real para los participantes del hilo.
+                      </p>
+                      <textarea
+                        value={draftMessage}
+                        onChange={(event) =>
+                          setDraftMessage(event.target.value)
+                        }
+                        placeholder="Escribe aquí para coordinar la entrega, el punto de encuentro o una duda del artículo..."
+                        className="mt-3 min-h-28 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition-colors focus:border-emerald-400"
+                      />
                     </div>
 
-                    <div className="relative mt-4 min-h-[220px] overflow-hidden rounded-[1.5rem] border border-emerald-100 bg-white/75">
-                      <div className="absolute inset-0 opacity-70">
-                        <div className="absolute inset-x-0 top-[25%] h-px bg-emerald-100" />
-                        <div className="absolute inset-x-0 top-[50%] h-px bg-emerald-100" />
-                        <div className="absolute inset-x-0 top-[75%] h-px bg-emerald-100" />
-                        <div className="absolute left-[25%] top-0 h-full w-px bg-emerald-100" />
-                        <div className="absolute left-[50%] top-0 h-full w-px bg-emerald-100" />
-                        <div className="absolute left-[75%] top-0 h-full w-px bg-emerald-100" />
-                      </div>
-
-                      {participantLocations.length === 0 ? (
-                        <div className="absolute inset-0 flex items-center justify-center px-6 text-center text-sm text-slate-500">
-                          Cuando alguien entre a ReCyClapp o comparta su
-                          ubicación en este hilo, el punto aparecerá aquí.
-                        </div>
-                      ) : (
-                        participantLocations.map((participant, index) => (
-                          <div
-                            key={participant.userId}
-                            className="absolute -translate-x-1/2 -translate-y-1/2"
-                            style={{
-                              left: `${miniMapPositions[index]?.left ?? 50}%`,
-                              top: `${miniMapPositions[index]?.top ?? 50}%`,
-                            }}
-                          >
-                            <div
-                              className={`flex h-10 w-10 items-center justify-center rounded-full border-4 border-white shadow-lg ${
-                                participant.userId === currentUser.id
-                                  ? "bg-emerald-600 text-white"
-                                  : "bg-slate-900 text-white"
-                              }`}
-                            >
-                              <MapPin className="h-4 w-4" />
-                            </div>
-                            <div className="absolute left-1/2 top-11 w-40 -translate-x-1/2 rounded-2xl border border-slate-100 bg-white/95 p-3 text-xs shadow-lg">
-                              <p className="font-semibold text-slate-900">
-                                {participant.name}
-                              </p>
-                              <p className="mt-1 text-slate-500">
-                                {formatCoordinate(participant.latitude)},{" "}
-                                {formatCoordinate(participant.longitude)}
-                              </p>
-                            </div>
-                          </div>
-                        ))
-                      )}
+                    <div className="flex gap-3 lg:flex-col">
+                      <button
+                        type="button"
+                        onClick={handleShareLocation}
+                        disabled={isSharingLocation || !selectedConversationId}
+                        className="inline-flex min-w-44 items-center justify-center gap-2 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800 transition-colors hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {isSharingLocation ? (
+                          <LoaderCircle className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <LocateFixed className="h-4 w-4" />
+                        )}
+                        Enviar ubicación
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={isSending || !draftMessage.trim()}
+                        className="inline-flex min-w-44 items-center justify-center gap-2 rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
+                      >
+                        {isSending ? (
+                          <LoaderCircle className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Send className="h-4 w-4" />
+                        )}
+                        Contestar Mensaje
+                      </button>
                     </div>
                   </div>
+                </form>
+              </div>
+            </>
+          )}
+          </div>
+        </div>
+      </section>
 
-                  <div className="rounded-[1.75rem] border border-slate-100 bg-slate-50/80 p-4">
-                    <p className="text-sm font-semibold text-slate-900">
-                      Ubicación registrada
-                    </p>
-                    <div className="mt-3 space-y-3">
-                      {participantLocations.length === 0 ? (
-                        <p className="text-sm text-slate-500">
-                          Todavía no hay posiciones registradas para este hilo.
-                        </p>
-                      ) : (
-                        participantLocations.map((participant) => (
-                          <div
-                            key={participant.userId}
-                            className="rounded-2xl border border-slate-100 bg-white px-3 py-2 text-sm text-slate-600"
-                          >
-                            <p className="font-semibold text-slate-900">
-                              {participant.name}
-                            </p>
-                            <p className="mt-1">
-                              Lat {formatCoordinate(participant.latitude)} · Lng{" "}
-                              {formatCoordinate(participant.longitude)}
-                            </p>
-                            <p className="mt-1 text-xs text-slate-400">
-                              {formatAbsoluteDate(participant.capturedAt)}
-                            </p>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  </div>
+      {selectedLocationMessage?.location && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-sm"
+          onClick={() => setSelectedLocationMessageId("")}
+        >
+          <div
+            className="max-h-[92vh] w-full max-w-5xl overflow-hidden rounded-[2rem] border border-emerald-100 bg-white shadow-2xl shadow-slate-950/20"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex flex-col gap-3 border-b border-slate-100 bg-linear-to-r from-emerald-50 via-white to-teal-50 px-6 py-5 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-emerald-700">
+                  Mapa de ubicación
+                </p>
+                <h4 className="mt-2 font-display text-2xl font-semibold text-slate-900">
+                  Punto abierto desde el mensaje
+                </h4>
+                <p className="mt-1 text-sm text-slate-500">
+                  Snapshot exacto compartido en el chat sobre Leaflet +
+                  OpenStreetMap.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setSelectedLocationMessageId("")}
+                className="inline-flex items-center justify-center gap-2 rounded-2xl border border-emerald-200 bg-white px-4 py-2.5 text-sm font-semibold text-emerald-800 transition-colors hover:bg-emerald-50"
+              >
+                <X className="h-4 w-4" />
+                Cerrar mapa
+              </button>
+            </div>
+
+            <div className="max-h-[calc(92vh-96px)] overflow-y-auto p-6">
+              <div className="overflow-hidden rounded-[1.5rem] border border-emerald-100 bg-white">
+                <div className="h-[420px]">
+                  <SharedLocationMap
+                    snapshotPoint={{
+                      latitude: selectedLocationMessage.location.latitude,
+                      longitude: selectedLocationMessage.location.longitude,
+                      title: "Snapshot del mensaje",
+                      description: `${selectedLocationMessage.senderName} • ${buildLocationSummary(selectedLocationMessage.location)}`,
+                      tone: "snapshot",
+                    }}
+                    latestPoint={
+                      showLatestSenderMarker && selectedSenderLastLocation
+                        ? {
+                            latitude: selectedSenderLastLocation.latitude,
+                            longitude: selectedSenderLastLocation.longitude,
+                            title: "Última ubicación registrada",
+                            description: `${selectedLocationParticipant?.name ?? selectedLocationMessage.senderName} • ${buildLocationSummary(selectedSenderLastLocation)}`,
+                            tone: "latest",
+                          }
+                        : null
+                    }
+                  />
                 </div>
               </div>
 
-              <form
-                onSubmit={handleSendMessage}
-                className="mt-6 rounded-[1.75rem] border border-slate-100 bg-slate-50/80 p-4"
-              >
-                <div className="flex flex-col gap-4 lg:flex-row lg:items-end">
-                  <div className="flex-1">
-                    <label className="text-sm font-semibold text-slate-900">
-                      Respuesta rápida
-                    </label>
-                    <p className="mt-1 text-sm text-slate-500">
-                      El historial queda almacenado y se actualiza en tiempo
-                      real para los participantes del hilo.
-                    </p>
-                    <textarea
-                      value={draftMessage}
-                      onChange={(event) => setDraftMessage(event.target.value)}
-                      placeholder="Escribe aquí para coordinar la entrega, el punto de encuentro o una duda del artículo..."
-                      className="mt-3 min-h-28 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition-colors focus:border-emerald-400"
-                    />
-                  </div>
-
-                  <div className="flex gap-3 lg:flex-col">
-                    <button
-                      type="button"
-                      onClick={handleShareLocation}
-                      disabled={isSharingLocation || !selectedConversationId}
-                      className="inline-flex min-w-44 items-center justify-center gap-2 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800 transition-colors hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      {isSharingLocation ? (
-                        <LoaderCircle className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <LocateFixed className="h-4 w-4" />
-                      )}
-                      Enviar ubicación
-                    </button>
-                    <button
-                      type="submit"
-                      disabled={isSending || !draftMessage.trim()}
-                      className="inline-flex min-w-44 items-center justify-center gap-2 rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
-                    >
-                      {isSending ? (
-                        <LoaderCircle className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Send className="h-4 w-4" />
-                      )}
-                      Enviar respuesta
-                    </button>
-                  </div>
+              <div className="mt-4 grid gap-3 lg:grid-cols-2">
+                <div className="rounded-2xl border border-emerald-100 bg-emerald-50/40 p-4 text-sm text-slate-600">
+                  <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-emerald-700">
+                    Snapshot del mensaje
+                  </p>
+                  <p className="mt-2 font-semibold text-slate-900">
+                    {selectedLocationMessage.senderUserId === currentUser.id
+                      ? "Tú"
+                      : selectedLocationMessage.senderName}
+                  </p>
+                  <p className="mt-1">
+                    {buildLocationSummary(selectedLocationMessage.location)}
+                  </p>
+                  <p className="mt-1">
+                    Precisión:{" "}
+                    {selectedLocationMessage.location.accuracyMeters
+                      ? `${Math.round(selectedLocationMessage.location.accuracyMeters)} m`
+                      : "No disponible"}
+                  </p>
+                  <p className="mt-2 text-xs text-slate-400">
+                    {formatAbsoluteDate(selectedLocationMessage.createdAt)}
+                  </p>
                 </div>
-              </form>
-            </>
-          )}
+
+                <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4 text-sm text-slate-600">
+                  <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-slate-500">
+                    Última ubicación registrada
+                  </p>
+                  {selectedSenderLastLocation ? (
+                    <>
+                      <p className="mt-2 font-semibold text-slate-900">
+                        {selectedLocationParticipant?.name ??
+                          selectedLocationMessage.senderName}
+                      </p>
+                      <p className="mt-1">
+                        {buildLocationSummary(selectedSenderLastLocation)}
+                      </p>
+                      <p className="mt-1">
+                        Fuente: {selectedSenderLastLocation.source}
+                      </p>
+                      <p className="mt-2 text-xs text-slate-400">
+                        {formatAbsoluteDate(
+                          selectedSenderLastLocation.capturedAt,
+                        )}
+                      </p>
+                    </>
+                  ) : (
+                    <p className="mt-2 text-sm text-slate-500">
+                      Este usuario todavía no tiene una última ubicación
+                      registrada fuera del snapshot del mensaje.
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <p className="mt-4 text-xs leading-6 text-slate-500">
+                El mensaje conserva este punto aunque el usuario comparta otra
+                ubicación posteriormente. Así evitamos que un mensaje antiguo
+                cambie de posición al actualizarse `user_last_locations`.
+              </p>
+            </div>
+          </div>
         </div>
-      </div>
-    </section>
+      )}
+    </>
   );
 }

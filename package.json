@@ -27,6 +27,7 @@
     "baseline-browser-mapping": "^2.10.43",
     "caniuse-lite": "^1.0.30001806",
     "dotenv": "^17.2.3",
+    "leaflet": "^1.9.4",
     "lucide-react": "^0.546.0",
     "motion": "^12.23.24",
     "next": "^16.2.10",
@@ -34,10 +35,12 @@
     "postcss": "^8.4.31",
     "react": "^19.0.1",
     "react-dom": "^19.0.1",
+    "react-leaflet": "^5.0.0",
     "styled-jsx": "^5.1.6"
   },
   "devDependencies": {
     "@faker-js/faker": "^10.5.0",
+    "@types/leaflet": "^1.9.21",
     "@types/node": "^22.14.0",
     "@types/pg": "^8.20.0",
     "@types/react": "^19.2.16",

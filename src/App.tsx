@@ -1,6 +1,6 @@
 "use client";
 
-import { SyntheticEvent, useEffect, useState } from "react";
+import { SyntheticEvent, useEffect, useMemo, useState } from "react";
 import {
   Recycle,
   Sprout,
@@ -23,6 +23,7 @@ import {
   UserProfile,
   ItemCategory,
   PublishListingInput,
+  ConversationSummary,
 } from "./types";
 import Navbar from "./components/Navbar";
 import LandingPage from "./components/LandingPage";
@@ -61,6 +62,41 @@ const INITIAL_NOTIFICATIONS: Notification[] = [
   },
 ];
 
+function formatNotificationTimestamp(value: string) {
+  return new Intl.DateTimeFormat("es-MX", {
+    dateStyle: "short",
+    timeStyle: "short",
+  }).format(new Date(value));
+}
+
+function buildMessageNotification(conversation: ConversationSummary): Notification | null {
+  if (!conversation.unreadCount || !conversation.otherParticipant) {
+    return null;
+  }
+
+  const senderName = conversation.otherParticipant.name.split(" ")[0] || "usuario";
+  const pendingLabel =
+    conversation.unreadCount === 1
+      ? `Tienes 1 mensaje pendiente de ${senderName}.`
+      : `Tienes ${conversation.unreadCount} mensajes pendientes de ${senderName}.`;
+  const lastMessageLabel =
+    conversation.lastMessage?.messageType === "LOCATION"
+      ? "Última actualización: ubicación compartida."
+      : conversation.lastMessage?.body || "Abre la mensajería para ver el contenido más reciente.";
+
+  return {
+    id: `message-${conversation.id}-${conversation.lastMessage?.id ?? conversation.lastActivityAt}`,
+    title: `Mensaje pendiente de ${senderName}`,
+    description: `${pendingLabel} ${lastMessageLabel}`,
+    timestamp: formatNotificationTimestamp(conversation.lastActivityAt),
+    read: false,
+    type: "info",
+    category: "message",
+    targetTab: "mensajeria",
+    targetConversationId: conversation.id,
+  };
+}
+
 export default function App() {
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
   const [shouldPersistSession, setShouldPersistSession] = useState(false);
@@ -76,6 +112,12 @@ export default function App() {
   const [notifications, setNotifications] = useState<Notification[]>(
     INITIAL_NOTIFICATIONS,
   );
+  const [messageConversations, setMessageConversations] = useState<
+    ConversationSummary[]
+  >([]);
+  const [seenMessageNotificationIds, setSeenMessageNotificationIds] = useState<
+    string[]
+  >([]);
 
   // HUD routing active tab
   const [activeTab, setActiveTab] = useState<string>("inicio");
@@ -88,6 +130,21 @@ export default function App() {
     currentUser?.address || "",
   );
   const [profilePhone, setProfilePhone] = useState(currentUser?.phone || "");
+
+  const messageNotifications = useMemo(() => {
+    return messageConversations
+      .map(buildMessageNotification)
+      .filter((notification): notification is Notification => notification !== null)
+      .map((notification) => ({
+        ...notification,
+        read: seenMessageNotificationIds.includes(notification.id),
+      }));
+  }, [messageConversations, seenMessageNotificationIds]);
+
+  const combinedNotifications = useMemo(
+    () => [...messageNotifications, ...notifications],
+    [messageNotifications, notifications],
+  );
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -152,6 +209,23 @@ export default function App() {
     setRepairWorkshops(payload.workshops);
     setFeaturedRepairWorkshops(payload.featuredWorkshops);
     return payload;
+  };
+
+  const loadConversationNotifications = async (userId: string) => {
+    const response = await fetch(
+      `/api/conversations?userId=${encodeURIComponent(userId)}`,
+    );
+
+    if (!response.ok) {
+      throw new Error("No fue posible cargar las notificaciones de mensajes.");
+    }
+
+    const payload = (await response.json()) as {
+      conversations?: ConversationSummary[];
+    };
+
+    setMessageConversations(payload.conversations ?? []);
+    return payload.conversations ?? [];
   };
 
   useEffect(() => {
@@ -261,6 +335,77 @@ export default function App() {
   }, [currentUser, shouldPersistSession]);
 
   useEffect(() => {
+    setSeenMessageNotificationIds([]);
+
+    if (!currentUser?.id) {
+      setMessageConversations([]);
+      return;
+    }
+
+    let cancelled = false;
+    const supabase = createSupabaseBrowserClient();
+
+    const refreshNotifications = async () => {
+      try {
+        const conversations = await loadConversationNotifications(currentUser.id);
+
+        if (cancelled) {
+          return;
+        }
+
+        setSeenMessageNotificationIds((previousIds) =>
+          previousIds.filter((id) =>
+            conversations.some((conversation) => {
+              const notification = buildMessageNotification(conversation);
+              return notification?.id === id;
+            }),
+          ),
+        );
+      } catch (error) {
+        console.error("Error cargando notificaciones de mensajes:", error);
+
+        if (!cancelled) {
+          setMessageConversations([]);
+        }
+      }
+    };
+
+    void refreshNotifications();
+
+    const conversationChannel = supabase
+      .channel(`recyclapp-notifications-${currentUser.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "recyclapp_schema",
+          table: "t_mensaje_chat",
+        },
+        async () => {
+          if (!cancelled) {
+            await refreshNotifications();
+          }
+        },
+      )
+      .subscribe();
+
+    const handleConversationSync = () => {
+      void refreshNotifications();
+    };
+
+    window.addEventListener("recyclapp:conversation-sync", handleConversationSync);
+
+    return () => {
+      cancelled = true;
+      window.removeEventListener(
+        "recyclapp:conversation-sync",
+        handleConversationSync,
+      );
+      void supabase.removeChannel(conversationChannel);
+    };
+  }, [currentUser?.id]);
+
+  useEffect(() => {
     if (!currentUser || typeof window === "undefined") {
       return;
     }
@@ -342,10 +487,25 @@ export default function App() {
   }, []);
 
   // Notification action handler
-  const handleReadNotification = (id: string) => {
+  const handleReadNotification = (notification: Notification) => {
+    if (notification.category === "message") {
+      setSeenMessageNotificationIds((prev) =>
+        prev.includes(notification.id) ? prev : [...prev, notification.id],
+      );
+      return;
+    }
+
     setNotifications((prev: Notification[]) =>
-      prev.map((n) => (n.id === id ? { ...n, read: true } : n)),
+      prev.map((n) =>
+        n.id === notification.id ? { ...n, read: true } : n,
+      ),
     );
+  };
+
+  const handleOpenNotification = (notification: Notification) => {
+    if (notification.targetTab) {
+      setActiveTab(notification.targetTab);
+    }
   };
 
   const handleLogout = async () => {
@@ -359,6 +519,8 @@ export default function App() {
     setShouldPersistSession(false);
     setCurrentUser(null);
     setActiveTab("inicio");
+    setMessageConversations([]);
+    setSeenMessageNotificationIds([]);
     setNotifications((prev: Notification[]) => [
       {
         id: "logout-" + Date.now(),
@@ -656,12 +818,13 @@ export default function App() {
       {/* 1. Header Navigation */}
       <Navbar
         currentUser={currentUser}
-        notifications={notifications}
+        notifications={combinedNotifications}
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         onLogout={handleLogout}
         onLoginClick={() => setShowAuthModal(true)}
         onNotificationRead={handleReadNotification}
+        onNotificationOpen={handleOpenNotification}
       />
 
       {/* Main Container */}
@@ -1025,12 +1188,16 @@ export default function App() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-1 md:grid-cols-3 gap-8">
           <div className="flex flex-col gap-3 text-left">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-emerald-600 flex items-center justify-center">
-                <Recycle className="w-5 h-5 text-white" />
-              </div>
-              <span className="font-display font-black tracking-tight text-white text-base">
-                ReCyClapp Sostenible
-              </span>
+              <img
+                src="/logos/logoRecyclapp.png"
+                alt="Logo ReCyClapp"
+                className="h-10 w-auto object-contain"
+              />
+              <img
+                src="/logos/logoTexto.png"
+                alt="ReCyClapp"
+                className="h-8 w-auto object-contain"
+              />
             </div>
             <p className="text-slate-400 leading-relaxed max-w-sm">
               Plataforma integradora para la descarbonización del hogar mediante
