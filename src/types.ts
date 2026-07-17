@@ -138,6 +138,77 @@ export interface Notification {
   type: "success" | "info" | "warning";
 }
 
+export interface UserLocationSnapshot {
+  latitude: number;
+  longitude: number;
+  accuracyMeters: number | null;
+  capturedAt: string;
+  source: string;
+}
+
+export interface ConversationParticipantProfile {
+  userId: string;
+  name: string;
+  email: string;
+  avatarUrl: string | null;
+  lastReadAt: string | null;
+  lastLocation: UserLocationSnapshot | null;
+}
+
+export interface ConversationMessageRecord {
+  id: string;
+  senderUserId: string;
+  senderName: string;
+  senderAvatarUrl: string | null;
+  messageType: "TEXT" | "LOCATION" | "SYSTEM" | string;
+  body: string | null;
+  createdAt: string;
+  location: {
+    latitude: number;
+    longitude: number;
+    accuracyMeters: number | null;
+    label: string | null;
+  } | null;
+}
+
+export interface ConversationSummary {
+  id: string;
+  listingId: string | null;
+  listingTitle: string | null;
+  subject: string;
+  status: string;
+  unreadCount: number;
+  lastActivityAt: string;
+  lastMessage: {
+    id: string;
+    body: string | null;
+    messageType: string;
+    createdAt: string;
+    senderUserId: string;
+  } | null;
+  otherParticipant: {
+    id: string;
+    name: string;
+    email: string;
+    avatarUrl: string | null;
+    lastLocation: UserLocationSnapshot | null;
+  } | null;
+}
+
+export interface ConversationDetail {
+  id: string;
+  subject: string;
+  status: string;
+  createdAt: string;
+  listing: {
+    id: string;
+    title: string;
+  } | null;
+  unreadCount: number;
+  participants: ConversationParticipantProfile[];
+  messages: ConversationMessageRecord[];
+}
+
 export interface WasteCenter {
   id: string;
   name: string;

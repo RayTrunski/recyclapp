@@ -33,8 +33,9 @@ export function createSupabaseServerClient(
   const supabaseUrl = resolveSupabaseUrl();
   const supabaseKey = options.useServiceRole
     ? requireServerEnv(
-        process.env.SUPABASE_SERVICE_ROLE_KEY,
-        "SUPABASE_SERVICE_ROLE_KEY",
+        process.env.SUPABASE_SERVICE_ROLE_KEY ??
+          process.env.SUPABASE_SECRET_KEY,
+        "SUPABASE_SERVICE_ROLE_KEY o SUPABASE_SECRET_KEY",
       )
     : resolveSupabasePublishableKey();
 

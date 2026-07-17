@@ -1,5 +1,7 @@
 import { createBrowserClient } from "@supabase/ssr";
 
+let browserClient: ReturnType<typeof createBrowserClient> | null = null;
+
 function requireClientEnv(value: string | undefined, variable: string) {
   if (!value) {
     throw new Error(`Falta la variable ${variable}.`);
@@ -9,6 +11,10 @@ function requireClientEnv(value: string | undefined, variable: string) {
 }
 
 export function createSupabaseBrowserClient() {
+  if (browserClient) {
+    return browserClient;
+  }
+
   const supabaseUrl = requireClientEnv(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
     "NEXT_PUBLIC_SUPABASE_URL",
@@ -18,5 +24,7 @@ export function createSupabaseBrowserClient() {
     "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY",
   );
 
-  return createBrowserClient(supabaseUrl, supabaseKey);
+  browserClient = createBrowserClient(supabaseUrl, supabaseKey);
+
+  return browserClient;
 }

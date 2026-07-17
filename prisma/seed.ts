@@ -5,7 +5,6 @@ import {
   ItemCondition,
   ListingStatus,
   Prisma,
-  PrismaClient,
   UserRole,
   VerificationStatus,
   WasteCenterType,
@@ -13,6 +12,7 @@ import {
 import { faker } from "@faker-js/faker";
 
 import { resolveDatabaseUrl } from "../lib/database-url";
+import { createPrismaClient } from "../lib/prisma";
 import { LISTING_IMAGE_LIBRARY } from "../lib/listing-images";
 
 type CategorySlug =
@@ -78,18 +78,56 @@ type RepairWorkshopSeed = {
   neighborhood: string;
   postalCode: string;
   addressLine1: string;
+  isVerified?: boolean;
 };
 
-const databaseUrl = new URL(resolveDatabaseUrl());
-process.env.DATABASE_URL = databaseUrl.toString();
+type RepairWorkshopLocationSeed = {
+  state: string;
+  city: string;
+  municipality: string;
+  neighborhood: string;
+  postalCode: string;
+  areaCode: string;
+  streets: string[];
+};
 
-const prisma = new PrismaClient();
+type RepairWorkshopSpecialtyTemplate = {
+  specialty: string;
+  focusLabel: string;
+  description: string;
+  homeVisitProbability: number;
+};
+
+const prisma = createPrismaClient();
 
 faker.seed(20260716);
 faker.setDefaultRefDate("2026-07-16T00:00:00.000Z");
 
 const makeSeedUuid = (value: number) =>
   `00000000-0000-0000-0000-${value.toString().padStart(12, "0")}`;
+
+const DEFAULT_REPAIR_WORKSHOP_FAKE_COUNT = 18;
+const runtimeDatabaseUrl = new URL(resolveDatabaseUrl());
+
+function parseSeedCount(value: string | undefined, fallback: number) {
+  const parsed = Number.parseInt(value ?? "", 10);
+
+  if (Number.isNaN(parsed) || parsed < 0) {
+    return fallback;
+  }
+
+  return parsed;
+}
+
+function slugifySeedText(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .replace(/-{2,}/g, "-");
+}
 
 const CATEGORY_SEED = [
   {
@@ -590,6 +628,253 @@ const REPAIR_WORKSHOP_SEED: RepairWorkshopSeed[] = [
     addressLine1: "Avenida Juarez 2908",
   },
 ];
+
+const REPAIR_WORKSHOP_LOCATION_POOL: RepairWorkshopLocationSeed[] = [
+  {
+    state: "Ciudad de Mexico",
+    city: "Cuauhtemoc",
+    municipality: "Roma Norte",
+    neighborhood: "Roma Norte",
+    postalCode: "06700",
+    areaCode: "55",
+    streets: ["Oaxaca", "Colima", "Puebla", "Orizaba"],
+  },
+  {
+    state: "Ciudad de Mexico",
+    city: "Benito Juarez",
+    municipality: "Del Valle",
+    neighborhood: "Del Valle Centro",
+    postalCode: "03100",
+    areaCode: "55",
+    streets: ["Amores", "Parroquia", "Pilares", "Providencia"],
+  },
+  {
+    state: "Ciudad de Mexico",
+    city: "Coyoacan",
+    municipality: "Coyoacan",
+    neighborhood: "Del Carmen",
+    postalCode: "04100",
+    areaCode: "55",
+    streets: ["Centenario", "Fernandez Leal", "Belisario Dominguez", "Aguayo"],
+  },
+  {
+    state: "Jalisco",
+    city: "Guadalajara",
+    municipality: "Providencia",
+    neighborhood: "Lomas del Valle",
+    postalCode: "44657",
+    areaCode: "33",
+    streets: ["Montevideo", "Ontario", "Pablo Neruda", "Terranova"],
+  },
+  {
+    state: "Jalisco",
+    city: "Zapopan",
+    municipality: "Chapalita",
+    neighborhood: "Ciudad del Sol",
+    postalCode: "45050",
+    areaCode: "33",
+    streets: [
+      "Avenida de las Rosas",
+      "Lopez Mateos Sur",
+      "Cruz del Sur",
+      "Paseo de la Luna",
+    ],
+  },
+  {
+    state: "Nuevo Leon",
+    city: "Monterrey",
+    municipality: "San Pedro",
+    neighborhood: "Del Valle",
+    postalCode: "66220",
+    areaCode: "81",
+    streets: ["Calzada San Pedro", "Vasconcelos", "Rio Missouri", "Rufino Tamayo"],
+  },
+  {
+    state: "Nuevo Leon",
+    city: "Monterrey",
+    municipality: "San Pedro",
+    neighborhood: "Fuentes del Valle",
+    postalCode: "66224",
+    areaCode: "81",
+    streets: ["Rio Guadalquivir", "Av. Gomez Morin", "Rio Sena", "Av. Real San Agustin"],
+  },
+  {
+    state: "Puebla",
+    city: "Puebla",
+    municipality: "La Paz",
+    neighborhood: "La Paz",
+    postalCode: "72160",
+    areaCode: "222",
+    streets: ["Teziutlan Norte", "Teziutlan Sur", "Cholula", "Acatlan"],
+  },
+  {
+    state: "Puebla",
+    city: "Puebla",
+    municipality: "Angelopolis",
+    neighborhood: "La Noria",
+    postalCode: "72410",
+    areaCode: "222",
+    streets: ["Circuito Juan Pablo II", "31 Poniente", "11 Sur", "Via Atlixcayotl"],
+  },
+  {
+    state: "Queretaro",
+    city: "Queretaro",
+    municipality: "Centro Sur",
+    neighborhood: "Centro Sur",
+    postalCode: "76090",
+    areaCode: "442",
+    streets: ["Boulevard Centro Sur", "Bernardo Quintana", "Cerro del Agua", "Fray Luis de Leon"],
+  },
+  {
+    state: "Yucatan",
+    city: "Merida",
+    municipality: "Garcia Gineres",
+    neighborhood: "Garcia Gineres",
+    postalCode: "97070",
+    areaCode: "999",
+    streets: ["Avenida Colon", "Calle 20", "Calle 11", "Paseo de Montejo"],
+  },
+  {
+    state: "Baja California",
+    city: "Tijuana",
+    municipality: "Zona Rio",
+    neighborhood: "Zona Urbana Rio Tijuana",
+    postalCode: "22010",
+    areaCode: "664",
+    streets: [
+      "Boulevard Sanchez Taboada",
+      "Paseo de los Heroes",
+      "Mision de Mulege",
+      "Via Rapida Poniente",
+    ],
+  },
+];
+
+const REPAIR_WORKSHOP_SPECIALTY_POOL: RepairWorkshopSpecialtyTemplate[] = [
+  {
+    specialty: "Línea blanca, refrigeración y lavadoras",
+    focusLabel: "Línea Blanca",
+    description:
+      "Diagnóstico de fallas térmicas, cambio de sellos, motores y tarjetas para extender la vida útil de electrodomésticos.",
+    homeVisitProbability: 85,
+  },
+  {
+    specialty: "Electrónica doméstica, audio y pantallas",
+    focusLabel: "Electrónica",
+    description:
+      "Reparación de televisores, bocinas, consolas y equipos de audio con prioridad en rescate de componentes.",
+    homeVisitProbability: 30,
+  },
+  {
+    specialty: "Muebles de madera, restauración y barniz",
+    focusLabel: "Madera",
+    description:
+      "Ajuste estructural, resane, lijado y renovación estética para muebles residenciales y de oficina.",
+    homeVisitProbability: 55,
+  },
+  {
+    specialty: "Tapicería, cojinería y reparación textil",
+    focusLabel: "Tapicería",
+    description:
+      "Recuperación de sillones, sofás, cabeceras y sillas con reemplazo de telas y rellenos.",
+    homeVisitProbability: 70,
+  },
+  {
+    specialty: "Sillas ergonómicas, pistones y mobiliario ejecutivo",
+    focusLabel: "Oficina",
+    description:
+      "Mantenimiento correctivo de sillas, escritorios, archiveros y estaciones de trabajo reutilizables.",
+    homeVisitProbability: 75,
+  },
+  {
+    specialty: "Pequeños electrodomésticos, licuadoras y microondas",
+    focusLabel: "Electro Hogar",
+    description:
+      "Servicio técnico para aparatos compactos con inventario de refacciones reacondicionadas.",
+    homeVisitProbability: 40,
+  },
+];
+
+const REPAIR_WORKSHOP_NAME_PREFIXES = [
+  "Taller",
+  "Centro",
+  "Laboratorio",
+  "Casa",
+  "Punto",
+  "Estación",
+] as const;
+
+const REPAIR_WORKSHOP_NAME_ADJECTIVES = [
+  "Circular",
+  "Verde",
+  "Sostenible",
+  "Urbano",
+  "Integral",
+  "Comunitario",
+] as const;
+
+const REPAIR_WORKSHOP_SERVICE_PHRASES = [
+  "Atención con diagnóstico previo y seguimiento por WhatsApp.",
+  "Combina reparación puntual con rescate de piezas reutilizables.",
+  "Trabaja con enfoque preventivo para evitar reemplazos innecesarios.",
+  "Ofrece evaluación inicial y ruta de reparación por etapas.",
+] as const;
+
+function buildHybridRepairWorkshopSeed() {
+  const fakeCount = parseSeedCount(
+    process.env.REPAIR_WORKSHOP_FAKE_COUNT,
+    DEFAULT_REPAIR_WORKSHOP_FAKE_COUNT,
+  );
+
+  const generatedWorkshops: RepairWorkshopSeed[] = Array.from(
+    { length: fakeCount },
+    (_, index) => {
+      const location =
+        REPAIR_WORKSHOP_LOCATION_POOL[index % REPAIR_WORKSHOP_LOCATION_POOL.length];
+      const specialty =
+        REPAIR_WORKSHOP_SPECIALTY_POOL[index % REPAIR_WORKSHOP_SPECIALTY_POOL.length];
+      const prefix = faker.helpers.arrayElement(REPAIR_WORKSHOP_NAME_PREFIXES);
+      const adjective = faker.helpers.arrayElement(
+        REPAIR_WORKSHOP_NAME_ADJECTIVES,
+      );
+      const street = faker.helpers.arrayElement(location.streets);
+      const streetNumber = faker.number.int({ min: 18, max: 980 });
+      const locationTag =
+        index % 2 === 0 ? location.neighborhood : location.city;
+      const sequence = String(index + 1).padStart(2, "0");
+      const name = `${prefix} ${adjective} ${specialty.focusLabel} ${locationTag} ${sequence}`;
+      const slug = slugifySeedText(name);
+      const emailAlias = `${slug.replace(/-/g, "")}@recyclapp.mx`;
+      const website = `https://${slug}.recyclapp.mx`;
+      const acceptsHomeVisit =
+        faker.number.int({ min: 1, max: 100 }) <=
+        specialty.homeVisitProbability;
+      const isVerified = faker.number.int({ min: 1, max: 100 }) <= 65;
+
+      return {
+        id: makeSeedUuid(7201 + index),
+        addressId: makeSeedUuid(8201 + index),
+        slug,
+        name,
+        specialty: specialty.specialty,
+        description: `${specialty.description} ${faker.helpers.arrayElement(REPAIR_WORKSHOP_SERVICE_PHRASES)}`,
+        phone: `+52 ${location.areaCode} ${faker.string.numeric(4)} ${faker.string.numeric(4)}`,
+        email: emailAlias,
+        website,
+        acceptsHomeVisit,
+        state: location.state,
+        city: location.city,
+        municipality: location.municipality,
+        neighborhood: location.neighborhood,
+        postalCode: location.postalCode,
+        addressLine1: `${street} ${streetNumber}`,
+        isVerified,
+      };
+    },
+  );
+
+  return [...REPAIR_WORKSHOP_SEED, ...generatedWorkshops];
+}
 
 const LISTING_SEED: ListingSeed[] = [
   {
@@ -1201,8 +1486,8 @@ async function seedWasteCenters() {
   }
 }
 
-async function seedRepairWorkshops() {
-  for (const workshop of REPAIR_WORKSHOP_SEED) {
+async function seedRepairWorkshops(workshops: RepairWorkshopSeed[]) {
+  for (const workshop of workshops) {
     await prisma.address.upsert({
       where: { id: workshop.addressId },
       update: {
@@ -1229,9 +1514,10 @@ async function seedRepairWorkshops() {
     });
 
     await prisma.repairWorkshop.upsert({
-      where: { slug: workshop.slug },
+      where: { id: workshop.id },
       update: {
         name: workshop.name,
+        slug: workshop.slug,
         specialty: workshop.specialty,
         description: workshop.description,
         phone: workshop.phone,
@@ -1239,10 +1525,14 @@ async function seedRepairWorkshops() {
         website: workshop.website,
         addressId: workshop.addressId,
         ratingAverage: new Prisma.Decimal(
-          faker.number.float({ min: 4.2, max: 4.98, fractionDigits: 2 }),
+          faker.number.float({
+            min: workshop.isVerified ? 4.2 : 3.6,
+            max: workshop.isVerified ? 4.98 : 4.65,
+            fractionDigits: 2,
+          }),
         ),
         acceptsHomeVisit: workshop.acceptsHomeVisit,
-        isVerified: true,
+        isVerified: workshop.isVerified ?? true,
       },
       create: {
         id: workshop.id,
@@ -1255,10 +1545,14 @@ async function seedRepairWorkshops() {
         website: workshop.website,
         addressId: workshop.addressId,
         ratingAverage: new Prisma.Decimal(
-          faker.number.float({ min: 4.2, max: 4.98, fractionDigits: 2 }),
+          faker.number.float({
+            min: workshop.isVerified ? 4.2 : 3.6,
+            max: workshop.isVerified ? 4.98 : 4.65,
+            fractionDigits: 2,
+          }),
         ),
         acceptsHomeVisit: workshop.acceptsHomeVisit,
-        isVerified: true,
+        isVerified: workshop.isVerified ?? true,
       },
     });
   }
@@ -1449,18 +1743,19 @@ async function updateImpactStats() {
 
 async function main() {
   console.log(
-    `Seed ejecutandose sobre ${databaseUrl.hostname}/${databaseUrl.pathname.replace(/^\/+/, "")} con schema ${databaseUrl.searchParams.get("schema")}.`,
+    `Seed ejecutandose sobre ${runtimeDatabaseUrl.hostname}/${runtimeDatabaseUrl.pathname.replace(/^\/+/, "")} con schema ${runtimeDatabaseUrl.searchParams.get("schema")}.`,
   );
 
   await seedCategories();
   await seedUsers();
   await seedWasteCenters();
-  await seedRepairWorkshops();
+  const repairWorkshopSeed = buildHybridRepairWorkshopSeed();
+  await seedRepairWorkshops(repairWorkshopSeed);
   await seedListings();
   await updateImpactStats();
 
   console.log(
-    `Seed finalizado con ${CATEGORY_SEED.length} categorías, ${DEMO_USERS.length} usuarios, ${REPAIR_WORKSHOP_SEED.length} talleres y ${LISTING_SEED.length} artículos.`,
+    `Seed finalizado con ${CATEGORY_SEED.length} categorías, ${DEMO_USERS.length} usuarios, ${repairWorkshopSeed.length} talleres (${REPAIR_WORKSHOP_SEED.length} base + ${repairWorkshopSeed.length - REPAIR_WORKSHOP_SEED.length} faker) y ${LISTING_SEED.length} artículos.`,
   );
 }
 

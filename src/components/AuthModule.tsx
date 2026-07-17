@@ -6,6 +6,7 @@ import {
   User,
 } from "lucide-react";
 
+import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { UserProfile, UserRole } from "../types";
 
 interface AuthModuleProps {
@@ -16,6 +17,8 @@ interface AuthModuleProps {
 type LoginApiResponse = {
   success: boolean;
   message?: string;
+  realtimeEnabled?: boolean;
+  realtimeMessage?: string;
   user?: {
     id: string;
     email: string;
@@ -88,6 +91,23 @@ export default function AuthModule({ onLogin, onClose }: AuthModuleProps) {
       if (!response.ok || !result.success || !result.user) {
         setErrorMsg(result.message || "No fue posible iniciar sesión.");
         return;
+      }
+
+      if (result.realtimeEnabled === false && result.realtimeMessage) {
+        console.warn(result.realtimeMessage);
+      } else {
+        const supabase = createSupabaseBrowserClient();
+        const { error: realtimeError } = await supabase.auth.signInWithPassword({
+          email: result.user.email,
+          password,
+        });
+
+        if (realtimeError) {
+          setErrorMsg(
+            "La cuenta se validó, pero la sesión de mensajería en tiempo real no pudo iniciarse.",
+          );
+          return;
+        }
       }
 
       onLogin(crearPerfilLocal(result.user), rememberSession);

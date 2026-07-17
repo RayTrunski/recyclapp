@@ -2,7 +2,7 @@ function stripWrappingQuotes(value: string) {
   return value.trim().replace(/^['"]|['"]$/g, "");
 }
 
-export function resolveDatabaseUrl() {
+function buildDatabaseUrl({ useLibpqCompat = false }: { useLibpqCompat?: boolean } = {}) {
   const rawUrl = process.env.DATABASE_URL ?? process.env.SUPABASE_DB_URL;
 
   if (!rawUrl) {
@@ -22,5 +22,21 @@ export function resolveDatabaseUrl() {
     normalizedUrl.searchParams.set("sslmode", "require");
   }
 
+  if (
+    useLibpqCompat &&
+    normalizedUrl.searchParams.get("sslmode") === "require" &&
+    !normalizedUrl.searchParams.get("uselibpqcompat")
+  ) {
+    normalizedUrl.searchParams.set("uselibpqcompat", "true");
+  }
+
   return normalizedUrl.toString();
+}
+
+export function resolveDatabaseUrl() {
+  return buildDatabaseUrl();
+}
+
+export function resolveRuntimeDatabaseUrl() {
+  return buildDatabaseUrl({ useLibpqCompat: true });
 }

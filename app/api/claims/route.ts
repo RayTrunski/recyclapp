@@ -141,6 +141,42 @@ export async function POST(request: Request) {
             : PickupStatus.REQUESTED,
         },
       });
+
+      const conversation = await tx.conversation.create({
+        data: {
+          listingId: listing.id,
+          createdByUserId: claimantId,
+          subject: `Solicitud sobre ${listing.title}`,
+        },
+        select: {
+          id: true,
+        },
+      });
+
+      await tx.conversationParticipant.createMany({
+        data: [
+          {
+            conversationId: conversation.id,
+            userId: claimantId,
+            lastReadAt: new Date(),
+          },
+          {
+            conversationId: conversation.id,
+            userId: listing.ownerId,
+          },
+        ],
+      });
+
+      await tx.conversationMessage.create({
+        data: {
+          conversationId: conversation.id,
+          senderUserId: claimantId,
+          messageType: message ? "TEXT" : "SYSTEM",
+          body:
+            message ||
+            "Hola, me interesa esta publicación y quiero coordinar la entrega.",
+        },
+      });
     });
 
     return NextResponse.json(

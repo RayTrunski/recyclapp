@@ -15,6 +15,7 @@ export type LoginResult =
         id: string;
         email: string;
         role: SessionRole;
+        supabaseAuthUserId: string | null;
       };
     }
   | {
@@ -58,6 +59,7 @@ export async function loginWithCredentials(
       email: true,
       role: true,
       passwordHash: true,
+      supabaseAuthUserId: true,
     },
   });
 
@@ -69,6 +71,13 @@ export async function loginWithCredentials(
     };
   }
 
+  await prisma.user.update({
+    where: { id: user.id },
+    data: {
+      lastLoginAt: new Date(),
+    },
+  });
+
   return {
     success: true,
     status: 200,
@@ -76,6 +85,7 @@ export async function loginWithCredentials(
       id: user.id,
       email: user.email,
       role: normalizarRol(user.role),
+      supabaseAuthUserId: user.supabaseAuthUserId,
     },
   };
 }

@@ -3,21 +3,11 @@
 import { SyntheticEvent, useEffect, useState } from "react";
 import {
   Recycle,
-  User,
-  MapPin,
-  LogOut,
-  FileLock2,
   Sprout,
-  Calendar,
   Wrench,
   Heart,
-  TrendingUp,
-  ShieldCheck,
-  ListTodo,
-  CheckCircle2,
-  PhoneCall,
   Award,
-  BookOpen,
+  MessageSquare,
 } from "lucide-react";
 
 import {
@@ -42,10 +32,11 @@ import CatalogModule from "./components/CatalogModule";
 import CollectionModule from "./components/CollectionModule";
 import GeoModule from "./components/GeoModule";
 import RepairModule from "./components/RepairModule";
+import MessagingModule from "./components/MessagingModule";
 import AdminPanel from "./components/AdminPanel";
 import StatsModule from "./components/StatsModule";
-import ArchitectureBlueprint from "./components/ArchitectureBlueprint";
 import { CATEGORY_FALLBACK_IMAGES } from "../lib/listing-images";
+import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 const SESSION_STORAGE_KEY = "recyclapp.remembered-session";
 
@@ -88,8 +79,6 @@ export default function App() {
 
   // HUD routing active tab
   const [activeTab, setActiveTab] = useState<string>("inicio");
-  // Boolean toggle to view Technical Architect documentation or Dynamic Demo web app
-  const [technicalMode, setTechnicalMode] = useState<boolean>(false);
   const [showAuthModal, setShowAuthModal] = useState<boolean>(false);
   const [isListingsLoading, setIsListingsLoading] = useState(true);
   const [listingsError, setListingsError] = useState<string | null>(null);
@@ -272,6 +261,46 @@ export default function App() {
   }, [currentUser, shouldPersistSession]);
 
   useEffect(() => {
+    if (!currentUser || typeof window === "undefined") {
+      return;
+    }
+
+    if (!("geolocation" in navigator)) {
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        try {
+          await fetch("/api/location", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              userId: currentUser.id,
+              latitude: position.coords.latitude,
+              longitude: position.coords.longitude,
+              accuracyMeters: position.coords.accuracy,
+              source: "ACCESS",
+            }),
+          });
+        } catch (error) {
+          console.error("No fue posible registrar la ubicación de acceso:", error);
+        }
+      },
+      (error) => {
+        console.warn("Geolocalización no disponible al acceder:", error.message);
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 300000,
+      },
+    );
+  }, [currentUser]);
+
+  useEffect(() => {
     let isCancelled = false;
 
     async function loadListings() {
@@ -319,7 +348,14 @@ export default function App() {
     );
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      const supabase = createSupabaseBrowserClient();
+      await supabase.auth.signOut();
+    } catch (error) {
+      console.error("No fue posible cerrar la sesión de Supabase:", error);
+    }
+
     setShouldPersistSession(false);
     setCurrentUser(null);
     setActiveTab("inicio");
@@ -623,8 +659,6 @@ export default function App() {
         notifications={notifications}
         activeTab={activeTab}
         setActiveTab={setActiveTab}
-        technicalMode={technicalMode}
-        setTechnicalMode={setTechnicalMode}
         onLogout={handleLogout}
         onLoginClick={() => setShowAuthModal(true)}
         onNotificationRead={handleReadNotification}
@@ -632,124 +666,132 @@ export default function App() {
 
       {/* Main Container */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {technicalMode ? (
-          /* DISPLAY TECH AND SENIOR ARCHITECT BLUEPRINT PORTFOLIO */
-          <div className="animate-in fade-in zoom-in-95 duration-150">
-            <ArchitectureBlueprint />
-          </div>
-        ) : (
-          /* DISPLAY COMPREHENSIVE INTERACTIVE DYNAMIC APPLICATION PREVIEW */
-          <div className="flex flex-col gap-6">
-            {(isListingsLoading || listingsError) && (
-              <div
-                className={`rounded-2xl border px-4 py-3 text-xs ${
-                  listingsError
-                    ? "border-amber-200 bg-amber-50 text-amber-800"
-                    : "border-slate-200 bg-white text-slate-600"
-                }`}
-              >
-                {listingsError ??
-                  "Cargando artículos desde la base de datos de Supabase..."}
-              </div>
-            )}
+        <div className="flex flex-col gap-6">
+          {(isListingsLoading || listingsError) && (
+            <div
+              className={`rounded-2xl border px-4 py-3 text-xs ${
+                listingsError
+                  ? "border-amber-200 bg-amber-50 text-amber-800"
+                  : "border-slate-200 bg-white text-slate-600"
+              }`}
+            >
+              {listingsError ??
+                "Cargando artículos desde la base de datos de Supabase..."}
+            </div>
+          )}
 
-            {/* Conditional warning banner about simulated actions */}
-            <div className="bg-emerald-50 rounded-2xl p-4 border border-emerald-150 text-left flex flex-wrap gap-4 items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-emerald-600 flex items-center justify-center shrink-0">
-                  <Sprout className="w-5 h-5 text-emerald-100" />
-                </div>
-                <div>
-                  <h4 className="text-xs font-bold text-slate-800 leading-tight">
-                    Proyecto Piloto Comuna Ecológica ReCyClapp
-                  </h4>
-                  <p className="text-[11px] text-slate-500 leading-normal mt-0.5 max-w-xl">
-                    Estás navegando la versión prototipo con autenticación
-                    conectada a base de datos y módulos operativos todavía en
-                    modo local para esta sesión.
-                  </p>
-                </div>
+          {/* Conditional warning banner about simulated actions */}
+          <div className="bg-emerald-50 rounded-2xl p-4 border border-emerald-150 text-left flex flex-wrap gap-4 items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-emerald-600 flex items-center justify-center shrink-0">
+                <Sprout className="w-5 h-5 text-emerald-100" />
               </div>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setTechnicalMode(true)}
-                  className="px-3.5 py-1.5 rounded-lg border border-emerald-200 text-emerald-800 hover:bg-emerald-100 text-xs font-bold transition-colors cursor-pointer"
-                >
-                  Ver Planificación de Carpetas Next.js
-                </button>
+              <div>
+                <h4 className="text-xs font-bold text-slate-800 leading-tight">
+                  Proyecto Piloto Comuna Ecológica ReCyClapp
+                </h4>
+                <p className="text-[11px] text-slate-500 leading-normal mt-0.5 max-w-xl">
+                  Estás navegando la versión prototipo con autenticación
+                  conectada a base de datos y módulos operativos todavía en
+                  modo local para esta sesión.
+                </p>
               </div>
             </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => {
+                  if (!currentUser) {
+                    setShowAuthModal(true);
+                    return;
+                  }
 
-            {/* TAB RENDERING ROUTER ENGINE */}
-            <div className="animate-in fade-in duration-200">
-              {activeTab === "inicio" && (
-                <LandingPage
-                  onStartClick={() => {
-                    if (!currentUser) setShowAuthModal(true);
-                    else setActiveTab("publicar");
-                  }}
-                  onExploreClick={() => setActiveTab("articulos")}
-                />
-              )}
+                  setActiveTab("mensajeria");
+                }}
+                className="inline-flex items-center gap-2 rounded-lg border border-emerald-200 px-3.5 py-1.5 text-xs font-bold text-emerald-800 transition-colors hover:bg-emerald-100 cursor-pointer"
+              >
+                <MessageSquare className="h-3.5 w-3.5" />
+                {currentUser ? "Abrir mensajería" : "Inicia sesión para mensajería"}
+              </button>
+            </div>
+          </div>
 
-              {activeTab === "articulos" && (
-                <CatalogModule
-                  listings={listings}
-                  currentUser={currentUser}
-                  onClaimItem={handleClaimItem}
-                  onLoginRequest={() => setShowAuthModal(true)}
-                />
-              )}
+          {/* TAB RENDERING ROUTER ENGINE */}
+          <div className="animate-in fade-in duration-200">
+            {activeTab === "inicio" && (
+              <LandingPage
+                onStartClick={() => {
+                  if (!currentUser) setShowAuthModal(true);
+                  else setActiveTab("publicar");
+                }}
+                onExploreClick={() => setActiveTab("articulos")}
+              />
+            )}
 
-              {activeTab === "publicar" && (
-                <PublishModule
-                  currentUser={currentUser}
-                  onPublish={handlePublishListing}
-                  onLoginRequest={() => setShowAuthModal(true)}
-                />
-              )}
+            {activeTab === "articulos" && (
+              <CatalogModule
+                listings={listings}
+                currentUser={currentUser}
+                onClaimItem={handleClaimItem}
+                onLoginRequest={() => setShowAuthModal(true)}
+              />
+            )}
 
-              {activeTab === "recolecciones" && (
-                <CollectionModule
-                  currentUser={currentUser}
-                  pickupRequests={pickupRequests}
-                  availableListings={userListings}
-                  onAddPickup={handleAddPickup}
-                  onLoginRequest={() => setShowAuthModal(true)}
-                />
-              )}
+            {activeTab === "publicar" && (
+              <PublishModule
+                currentUser={currentUser}
+                onPublish={handlePublishListing}
+                onLoginRequest={() => setShowAuthModal(true)}
+              />
+            )}
 
-              {activeTab === "reparaciones" && (
-                <RepairModule
-                  currentUser={currentUser}
-                  repairRequests={repairRequests}
-                  availableListings={repairEligibleListings}
-                  workshops={repairWorkshops}
-                  featuredWorkshops={featuredRepairWorkshops}
-                  onAddRepair={handleAddRepair}
-                  onLoginRequest={() => setShowAuthModal(true)}
-                />
-              )}
+            {activeTab === "recolecciones" && (
+              <CollectionModule
+                currentUser={currentUser}
+                pickupRequests={pickupRequests}
+                availableListings={userListings}
+                onAddPickup={handleAddPickup}
+                onLoginRequest={() => setShowAuthModal(true)}
+              />
+            )}
 
-              {activeTab === "centros" && <GeoModule />}
+            {activeTab === "reparaciones" && (
+              <RepairModule
+                currentUser={currentUser}
+                repairRequests={repairRequests}
+                availableListings={repairEligibleListings}
+                workshops={repairWorkshops}
+                featuredWorkshops={featuredRepairWorkshops}
+                onAddRepair={handleAddRepair}
+                onLoginRequest={() => setShowAuthModal(true)}
+              />
+            )}
 
-              {activeTab === "estadisticas" && (
-                <StatsModule currentUser={currentUser} />
-              )}
+            {activeTab === "mensajeria" && (
+              <MessagingModule
+                currentUser={currentUser}
+                onLoginRequest={() => setShowAuthModal(true)}
+              />
+            )}
 
-              {activeTab === "admin" && (
-                <AdminPanel
-                  currentUser={currentUser}
-                  listings={listings}
-                  pickupRequests={pickupRequests}
-                  onApproveListing={handleApproveListing}
-                  onRejectListing={handleRejectListing}
-                  onAssignCollector={handleAssignCollector}
-                />
-              )}
+            {activeTab === "centros" && <GeoModule />}
 
-              {/* USER PROFILE & LOGGED ACTIONS SECTION */}
-              {activeTab === "perfil" && currentUser && (
+            {activeTab === "estadisticas" && (
+              <StatsModule currentUser={currentUser} />
+            )}
+
+            {activeTab === "admin" && (
+              <AdminPanel
+                currentUser={currentUser}
+                listings={listings}
+                pickupRequests={pickupRequests}
+                onApproveListing={handleApproveListing}
+                onRejectListing={handleRejectListing}
+                onAssignCollector={handleAssignCollector}
+              />
+            )}
+
+            {/* USER PROFILE & LOGGED ACTIONS SECTION */}
+            {activeTab === "perfil" && currentUser && (
                 <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-xs max-w-4xl mx-auto flex flex-col gap-8">
                   {/* Profile Header */}
                   <div className="flex flex-col sm:flex-row items-center gap-6 border-b border-slate-100 pb-6 text-center sm:text-left">
@@ -973,10 +1015,9 @@ export default function App() {
                     </button>
                   </div>
                 </div>
-              )}
-            </div>
+            )}
           </div>
-        )}
+        </div>
       </main>
 
       {/* 3. Footer Area */}
@@ -1003,37 +1044,25 @@ export default function App() {
             </h4>
             <div className="grid grid-cols-2 gap-2 text-slate-400">
               <button
-                onClick={() => {
-                  setTechnicalMode(false);
-                  setActiveTab("inicio");
-                }}
+                onClick={() => setActiveTab("inicio")}
                 className="hover:text-emerald-400 transition-colors text-left font-medium"
               >
                 Inicio
               </button>
               <button
-                onClick={() => {
-                  setTechnicalMode(false);
-                  setActiveTab("articulos");
-                }}
+                onClick={() => setActiveTab("articulos")}
                 className="hover:text-emerald-400 transition-colors text-left font-medium"
               >
                 Ver Muebles
               </button>
               <button
-                onClick={() => {
-                  setTechnicalMode(false);
-                  setActiveTab("recolecciones");
-                }}
+                onClick={() => setActiveTab("recolecciones")}
                 className="hover:text-emerald-400 transition-colors text-left font-medium"
               >
                 Agendar Colectas
               </button>
               <button
-                onClick={() => {
-                  setTechnicalMode(false);
-                  setActiveTab("centros");
-                }}
+                onClick={() => setActiveTab("centros")}
                 className="hover:text-emerald-400 transition-colors text-left font-medium"
               >
                 Mapa de Depósitos
@@ -1043,20 +1072,27 @@ export default function App() {
 
           <div className="text-left flex flex-col gap-3">
             <h4 className="font-bold text-slate-300 font-mono text-[10px] tracking-wider uppercase">
-              Documentación Técnica
+              Coordinación Operativa
             </h4>
             <p className="text-slate-400 leading-normal">
-              Inspecciona los diagramas, APIs y la jerarquía de directorios
-              preparados para producción con Next.js 14.
+              Centraliza conversaciones con talleres, cuadrillas y centros para
+              preparar el siguiente paso del flujo ciudadano.
             </p>
             <button
               onClick={() => {
-                setTechnicalMode(true);
+                if (!currentUser) {
+                  setShowAuthModal(true);
+                  return;
+                }
+
+                setActiveTab("mensajeria");
                 window.scrollTo({ top: 0, behavior: "smooth" });
               }}
               className="mt-1 px-4 py-2 bg-linear-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white rounded-lg font-bold transition-all text-xs w-full text-center"
             >
-              Consultar Blueprint de Arquitecto
+              {currentUser
+                ? "Abrir bandeja de mensajería"
+                : "Iniciar sesión para coordinar"}
             </button>
           </div>
         </div>
