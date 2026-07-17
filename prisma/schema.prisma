@@ -1,0 +1,508 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                 String             @id @default(dbgenerated("gen_random_uuid()")) @map("id_usuario") @db.Uuid
+  firstName          String             @map("nombre") @db.VarChar(100)
+  lastName           String?            @map("apellido") @db.VarChar(100)
+  displayName        String?            @map("nombre_mostrado") @db.VarChar(120)
+  email              String             @unique @map("correo") @db.VarChar(150)
+  passwordHash       String             @map("password_hash") @db.VarChar(255)
+  phone              String?            @map("telefono") @db.VarChar(30)
+  avatarUrl          String?            @map("url_avatar")
+  role               UserRole           @default(USER) @map("rol")
+  verificationStatus VerificationStatus @default(PENDING) @map("estado_verificacion")
+  isActive           Boolean            @default(true) @map("activo")
+  lastLoginAt        DateTime?          @map("fecha_ultimo_acceso")
+  defaultAddressId   String?            @map("id_direccion_principal") @db.Uuid
+  createdAt          DateTime           @default(now()) @map("fecha_creacion")
+  updatedAt          DateTime           @updatedAt @map("fecha_actualizacion")
+  addresses          Address[]          @relation("AddressOwner")
+  impactStats        UserImpactStats?
+  collectorProfile   CollectorProfile?
+  moderatedListings  Listing[]          @relation("ListingModerator")
+  listings           Listing[]          @relation("ListingOwner")
+  defaultAddress     Address?           @relation("UserDefaultAddress", fields: [defaultAddressId], references: [id])
+  auditLogs          AuditLog[]
+  notifications      Notification[]
+  favorites          Favorite[]
+  payments           Payment[]
+  assignedPickups    PickupRequest[]    @relation("PickupCollector")
+  pickupRequests     PickupRequest[]    @relation("PickupRequester")
+  repairRequests     RepairRequest[]    @relation("RepairRequester")
+  claims             ListingClaim[]     @relation("Claimant")
+
+  @@index([role])
+  @@index([verificationStatus])
+  @@map("d_usuario")
+}
+
+model Address {
+  id             String           @id @default(dbgenerated("gen_random_uuid()")) @map("id_direccion") @db.Uuid
+  ownerId        String?          @map("id_usuario") @db.Uuid
+  label          String?          @map("etiqueta") @db.VarChar(80)
+  contactName    String?          @map("nombre_contacto") @db.VarChar(120)
+  phone          String?          @map("telefono") @db.VarChar(30)
+  country        String           @default("MX") @map("pais") @db.VarChar(2)
+  state          String           @map("estado") @db.VarChar(100)
+  city           String           @map("ciudad") @db.VarChar(100)
+  municipality   String?          @map("municipio") @db.VarChar(100)
+  neighborhood   String?          @map("colonia") @db.VarChar(120)
+  postalCode     String?          @map("codigo_postal") @db.VarChar(10)
+  addressLine1   String           @map("direccion_linea_1") @db.VarChar(200)
+  addressLine2   String?          @map("direccion_linea_2") @db.VarChar(200)
+  reference      String?          @map("referencia")
+  latitude       Decimal?         @map("latitud") @db.Decimal(9, 6)
+  longitude      Decimal?         @map("longitud") @db.Decimal(9, 6)
+  createdAt      DateTime         @default(now()) @map("fecha_creacion")
+  updatedAt      DateTime         @updatedAt @map("fecha_actualizacion")
+  wasteCenters   WasteCenter[]
+  workshops      RepairWorkshop[]
+  owner          User?            @relation("AddressOwner", fields: [ownerId], references: [id])
+  listings       Listing[]        @relation("ListingAddress")
+  defaultFor     User[]           @relation("UserDefaultAddress")
+  pickupRequests PickupRequest[]  @relation("PickupAddress")
+
+  @@index([ownerId])
+  @@index([state, city])
+  @@map("d_direccion")
+}
+
+model Category {
+  id             String          @id @default(dbgenerated("gen_random_uuid()")) @map("id_categoria") @db.Uuid
+  slug           String          @unique @map("clave") @db.VarChar(60)
+  name           String          @unique @map("nombre") @db.VarChar(100)
+  description    String?         @map("descripcion")
+  isActive       Boolean         @default(true) @map("activo")
+  sortOrder      Int             @default(0) @map("orden_visual")
+  createdAt      DateTime        @default(now()) @map("fecha_creacion")
+  updatedAt      DateTime        @updatedAt @map("fecha_actualizacion")
+  listings       Listing[]
+  pickupRequests PickupRequest[]
+  repairRequests RepairRequest[]
+
+  @@map("c_categoria")
+}
+
+model Listing {
+  id                String          @id @default(dbgenerated("gen_random_uuid()")) @map("id_publicacion") @db.Uuid
+  ownerId           String          @map("id_usuario") @db.Uuid
+  categoryId        String          @map("id_categoria") @db.Uuid
+  approvedById      String?         @map("id_usuario_aprobador") @db.Uuid
+  pickupAddressId   String?         @map("id_direccion_recoleccion") @db.Uuid
+  title             String          @map("titulo") @db.VarChar(150)
+  description       String          @map("descripcion")
+  condition         ItemCondition   @map("condicion")
+  actionType        ActionType      @map("tipo_accion")
+  status            ListingStatus   @default(PENDING_REVIEW) @map("estado_publicacion")
+  pickupAvailable   Boolean         @default(false) @map("requiere_recoleccion")
+  availableFrom     DateTime?       @map("fecha_disponible")
+  estimatedWeightKg Decimal?        @map("peso_estimado_kg") @db.Decimal(10, 2)
+  estimatedValue    Decimal?        @map("valor_estimado") @db.Decimal(10, 2)
+  co2EstimateKg     Decimal?        @map("co2_estimado_kg") @db.Decimal(10, 2)
+  isActive          Boolean         @default(true) @map("activo")
+  publishedAt       DateTime?       @map("fecha_publicacion")
+  approvedAt        DateTime?       @map("fecha_aprobacion")
+  createdAt         DateTime        @default(now()) @map("fecha_creacion")
+  updatedAt         DateTime        @updatedAt @map("fecha_actualizacion")
+  images            ListingImage[]
+  category          Category        @relation(fields: [categoryId], references: [id])
+  pickupAddress     Address?        @relation("ListingAddress", fields: [pickupAddressId], references: [id])
+  moderator         User?           @relation("ListingModerator", fields: [approvedById], references: [id])
+  owner             User            @relation("ListingOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  auditLogs         AuditLog[]
+  favorites         Favorite[]
+  payments          Payment[]
+  pickupRequests    PickupRequest[]
+  repairRequests    RepairRequest[]
+  claims            ListingClaim[]
+
+  @@index([ownerId])
+  @@index([status])
+  @@index([categoryId, status])
+  @@index([actionType, status])
+  @@index([pickupAvailable, availableFrom])
+  @@index([createdAt])
+  @@map("d_publicacion")
+}
+
+model ListingImage {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @map("id_imagen_publicacion") @db.Uuid
+  listingId    String   @map("id_publicacion") @db.Uuid
+  url          String   @map("url_imagen")
+  storagePath  String?  @map("ruta_storage")
+  altText      String?  @map("texto_alternativo") @db.VarChar(160)
+  isPrimary    Boolean  @default(false) @map("es_principal")
+  displayOrder Int      @default(1) @map("orden_visual")
+  createdAt    DateTime @default(now()) @map("fecha_creacion")
+  listing      Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  @@unique([listingId, displayOrder])
+  @@index([listingId, isPrimary])
+  @@map("d_imagen_publicacion")
+}
+
+model Favorite {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @map("id_favorito") @db.Uuid
+  userId    String   @map("id_usuario") @db.Uuid
+  listingId String   @map("id_publicacion") @db.Uuid
+  createdAt DateTime @default(now()) @map("fecha_creacion")
+  listing   Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, listingId])
+  @@index([listingId])
+  @@map("r_favorito")
+}
+
+model ListingClaim {
+  id          String      @id @default(dbgenerated("gen_random_uuid()")) @map("id_solicitud_donacion") @db.Uuid
+  listingId   String      @map("id_publicacion") @db.Uuid
+  claimantId  String      @map("id_usuario_solicitante") @db.Uuid
+  message     String?     @map("mensaje")
+  status      ClaimStatus @default(PENDING) @map("estado_solicitud")
+  requestedAt DateTime    @default(now()) @map("fecha_solicitud")
+  respondedAt DateTime?   @map("fecha_respuesta")
+  completedAt DateTime?   @map("fecha_cierre")
+  createdAt   DateTime    @default(now()) @map("fecha_creacion")
+  updatedAt   DateTime    @updatedAt @map("fecha_actualizacion")
+  auditLogs   AuditLog[]
+  payment     Payment?
+  listing     Listing     @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  claimant    User        @relation("Claimant", fields: [claimantId], references: [id], onDelete: Cascade)
+
+  @@unique([listingId, claimantId])
+  @@index([status, requestedAt])
+  @@map("t_solicitud_donacion")
+}
+
+model PickupRequest {
+  id              String       @id @default(dbgenerated("gen_random_uuid()")) @map("id_recoleccion") @db.Uuid
+  listingId       String?      @map("id_publicacion") @db.Uuid
+  requesterId     String       @map("id_usuario_solicitante") @db.Uuid
+  collectorId     String?      @map("id_recolector") @db.Uuid
+  pickupAddressId String       @map("id_direccion_recoleccion") @db.Uuid
+  categoryId      String?      @map("id_categoria") @db.Uuid
+  itemTitle       String       @map("titulo_item") @db.VarChar(150)
+  notes           String?      @map("notas")
+  preferredDate   DateTime?    @map("fecha_preferida")
+  timeSlotLabel   String?      @map("bloque_horario") @db.VarChar(60)
+  status          PickupStatus @default(REQUESTED) @map("estado_recoleccion")
+  scheduledAt     DateTime?    @map("fecha_programada")
+  collectedAt     DateTime?    @map("fecha_recolectada")
+  cancelledAt     DateTime?    @map("fecha_cancelacion")
+  createdAt       DateTime     @default(now()) @map("fecha_creacion")
+  updatedAt       DateTime     @updatedAt @map("fecha_actualizacion")
+  auditLogs       AuditLog[]
+  category        Category?    @relation(fields: [categoryId], references: [id])
+  pickupAddress   Address      @relation("PickupAddress", fields: [pickupAddressId], references: [id])
+  listing         Listing?     @relation(fields: [listingId], references: [id])
+  collector       User?        @relation("PickupCollector", fields: [collectorId], references: [id])
+  requester       User         @relation("PickupRequester", fields: [requesterId], references: [id], onDelete: Cascade)
+
+  @@index([requesterId, status])
+  @@index([collectorId, status])
+  @@index([preferredDate, status])
+  @@map("t_recoleccion")
+}
+
+model CollectorProfile {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @map("id_perfil_recolector") @db.Uuid
+  userId       String    @unique @map("id_usuario") @db.Uuid
+  vehicleType  String?   @map("tipo_vehiculo") @db.VarChar(80)
+  vehiclePlate String?   @map("placa_vehiculo") @db.VarChar(20)
+  maxLoadKg    Decimal?  @map("carga_maxima_kg") @db.Decimal(10, 2)
+  coverageArea String?   @map("zona_cobertura") @db.VarChar(150)
+  isAvailable  Boolean   @default(true) @map("disponible")
+  verifiedAt   DateTime? @map("fecha_verificacion")
+  notes        String?   @map("notas")
+  createdAt    DateTime  @default(now()) @map("fecha_creacion")
+  updatedAt    DateTime  @updatedAt @map("fecha_actualizacion")
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("d_perfil_recolector")
+}
+
+model RepairWorkshop {
+  id               String          @id @default(dbgenerated("gen_random_uuid()")) @map("id_taller_reparacion") @db.Uuid
+  slug             String          @unique @map("clave_taller") @db.VarChar(80)
+  name             String          @unique @map("nombre_taller") @db.VarChar(150)
+  specialty        String          @map("especialidad") @db.VarChar(150)
+  description      String?         @map("descripcion")
+  phone            String?         @map("telefono") @db.VarChar(30)
+  email            String?         @map("correo") @db.VarChar(150)
+  website          String?         @map("sitio_web")
+  addressId        String?         @map("id_direccion") @db.Uuid
+  ratingAverage    Decimal?        @map("calificacion_promedio") @db.Decimal(3, 2)
+  acceptsHomeVisit Boolean         @default(false) @map("acepta_visita_domicilio")
+  isVerified       Boolean         @default(false) @map("verificado")
+  createdAt        DateTime        @default(now()) @map("fecha_creacion")
+  updatedAt        DateTime        @updatedAt @map("fecha_actualizacion")
+  address          Address?        @relation(fields: [addressId], references: [id])
+  repairRequests   RepairRequest[]
+
+  @@index([isVerified])
+  @@map("c_taller_reparacion")
+}
+
+model RepairRequest {
+  id               String          @id @default(dbgenerated("gen_random_uuid()")) @map("id_reparacion") @db.Uuid
+  requesterId      String          @map("id_usuario_solicitante") @db.Uuid
+  listingId        String?         @map("id_publicacion") @db.Uuid
+  workshopId       String?         @map("id_taller_reparacion") @db.Uuid
+  categoryId       String?         @map("id_categoria") @db.Uuid
+  itemName         String          @map("nombre_item") @db.VarChar(150)
+  description      String?         @map("descripcion_problema")
+  estimatedCostMin Decimal?        @map("costo_estimado_min") @db.Decimal(10, 2)
+  estimatedCostMax Decimal?        @map("costo_estimado_max") @db.Decimal(10, 2)
+  status           RepairStatus    @default(REQUESTED) @map("estado_reparacion")
+  requestedAt      DateTime        @default(now()) @map("fecha_solicitud")
+  quotedAt         DateTime?       @map("fecha_cotizacion")
+  approvedAt       DateTime?       @map("fecha_aprobacion")
+  completedAt      DateTime?       @map("fecha_finalizacion")
+  createdAt        DateTime        @default(now()) @map("fecha_creacion")
+  updatedAt        DateTime        @updatedAt @map("fecha_actualizacion")
+  auditLogs        AuditLog[]
+  payments         Payment[]
+  category         Category?       @relation(fields: [categoryId], references: [id])
+  listing          Listing?        @relation(fields: [listingId], references: [id])
+  workshop         RepairWorkshop? @relation(fields: [workshopId], references: [id])
+  requester        User            @relation("RepairRequester", fields: [requesterId], references: [id], onDelete: Cascade)
+
+  @@index([requesterId, status])
+  @@index([workshopId, status])
+  @@map("t_reparacion")
+}
+
+model WasteCenter {
+  id                String          @id @default(dbgenerated("gen_random_uuid()")) @map("id_centro_ecologico") @db.Uuid
+  slug              String          @unique @map("clave_centro") @db.VarChar(80)
+  name              String          @map("nombre_centro") @db.VarChar(150)
+  type              WasteCenterType @map("tipo_centro")
+  description       String?         @map("descripcion")
+  addressId         String?         @map("id_direccion") @db.Uuid
+  phone             String?         @map("telefono") @db.VarChar(30)
+  email             String?         @map("correo") @db.VarChar(150)
+  hours             String?         @map("horario") @db.VarChar(150)
+  acceptedMaterials String[]        @map("materiales_aceptados")
+  ratingAverage     Decimal?        @map("calificacion_promedio") @db.Decimal(3, 2)
+  isVerified        Boolean         @default(false) @map("verificado")
+  createdAt         DateTime        @default(now()) @map("fecha_creacion")
+  updatedAt         DateTime        @updatedAt @map("fecha_actualizacion")
+  address           Address?        @relation(fields: [addressId], references: [id])
+
+  @@index([type, isVerified])
+  @@map("c_centro_ecologico")
+}
+
+model Notification {
+  id        String           @id @default(dbgenerated("gen_random_uuid()")) @map("id_notificacion") @db.Uuid
+  userId    String           @map("id_usuario") @db.Uuid
+  title     String           @map("titulo") @db.VarChar(160)
+  message   String           @map("mensaje")
+  type      NotificationType @default(INFO) @map("tipo_notificacion")
+  actionUrl String?          @map("url_accion")
+  readAt    DateTime?        @map("fecha_lectura")
+  createdAt DateTime         @default(now()) @map("fecha_creacion")
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt])
+  @@map("log_notificacion")
+}
+
+model Payment {
+  id              String         @id @default(dbgenerated("gen_random_uuid()")) @map("id_pago") @db.Uuid
+  userId          String         @map("id_usuario") @db.Uuid
+  listingId       String?        @map("id_publicacion") @db.Uuid
+  claimId         String?        @unique @map("id_solicitud_donacion") @db.Uuid
+  repairRequestId String?        @map("id_reparacion") @db.Uuid
+  amount          Decimal        @map("monto") @db.Decimal(10, 2)
+  currency        String         @default("MXN") @map("moneda") @db.VarChar(3)
+  method          PaymentMethod  @map("metodo_pago")
+  status          PaymentStatus  @default(PENDING) @map("estado_pago")
+  reference       String?        @unique @map("referencia") @db.VarChar(100)
+  isDemo          Boolean        @default(true) @map("es_demo")
+  paidAt          DateTime?      @map("fecha_pago")
+  createdAt       DateTime       @default(now()) @map("fecha_creacion")
+  updatedAt       DateTime       @updatedAt @map("fecha_actualizacion")
+  auditLogs       AuditLog[]
+  listing         Listing?       @relation(fields: [listingId], references: [id])
+  repairRequest   RepairRequest? @relation(fields: [repairRequestId], references: [id])
+  claim           ListingClaim?  @relation(fields: [claimId], references: [id])
+  user            User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status])
+  @@index([listingId])
+  @@index([repairRequestId])
+  @@map("t_pago")
+}
+
+model UserImpactStats {
+  userId           String   @id @map("id_usuario") @db.Uuid
+  itemsPublished   Int      @default(0) @map("total_publicaciones")
+  itemsDonated     Int      @default(0) @map("total_donaciones")
+  itemsRecycled    Int      @default(0) @map("total_reciclajes")
+  itemsRepaired    Int      @default(0) @map("total_reparaciones")
+  pickupsCompleted Int      @default(0) @map("total_recolecciones_completadas")
+  co2SavedKg       Decimal  @default(0) @map("co2_ahorrado_kg") @db.Decimal(12, 2)
+  updatedAt        DateTime @updatedAt @map("fecha_actualizacion")
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("d_indicador_impacto_usuario")
+}
+
+model AuditLog {
+  id              String         @id @default(dbgenerated("gen_random_uuid()")) @map("id_auditoria") @db.Uuid
+  userId          String?        @map("id_usuario") @db.Uuid
+  listingId       String?        @map("id_publicacion") @db.Uuid
+  claimId         String?        @map("id_solicitud_donacion") @db.Uuid
+  pickupRequestId String?        @map("id_recoleccion") @db.Uuid
+  repairRequestId String?        @map("id_reparacion") @db.Uuid
+  paymentId       String?        @map("id_pago") @db.Uuid
+  eventType       String         @map("tipo_evento") @db.VarChar(80)
+  entityType      String         @map("tipo_entidad") @db.VarChar(80)
+  description     String         @map("descripcion")
+  metadata        Json?          @map("metadata")
+  createdAt       DateTime       @default(now()) @map("fecha_evento")
+  payment         Payment?       @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  listing         Listing?       @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  pickupRequest   PickupRequest? @relation(fields: [pickupRequestId], references: [id], onDelete: Cascade)
+  repairRequest   RepairRequest? @relation(fields: [repairRequestId], references: [id], onDelete: Cascade)
+  claim           ListingClaim?  @relation(fields: [claimId], references: [id], onDelete: Cascade)
+  user            User?          @relation(fields: [userId], references: [id])
+
+  @@index([eventType, createdAt])
+  @@index([userId])
+  @@map("h_auditoria")
+}
+
+enum UserRole {
+  USER      @map("CIUDADANO")
+  COLLECTOR @map("RECOLECTOR")
+  ADMIN     @map("ADMINISTRADOR")
+
+  @@map("cat_rol_usuario")
+}
+
+enum VerificationStatus {
+  PENDING   @map("PENDIENTE")
+  VERIFIED  @map("VERIFICADO")
+  REJECTED  @map("RECHAZADO")
+  SUSPENDED @map("SUSPENDIDO")
+
+  @@map("cat_estado_verificacion")
+}
+
+enum ItemCondition {
+  NEW      @map("NUEVO")
+  GOOD     @map("BUENO")
+  WORN     @map("DESGASTADO")
+  DAMAGED  @map("DANIADO")
+  UNUSABLE @map("INSERVIBLE")
+
+  @@map("cat_condicion_articulo")
+}
+
+enum ActionType {
+  DONATE  @map("DONAR")
+  RECYCLE @map("RECICLAR")
+  REPAIR  @map("REPARAR")
+
+  @@map("cat_tipo_accion")
+}
+
+enum ListingStatus {
+  DRAFT          @map("BORRADOR")
+  PENDING_REVIEW @map("PENDIENTE_REVISION")
+  APPROVED       @map("APROBADA")
+  REJECTED       @map("RECHAZADA")
+  RESERVED       @map("RESERVADA")
+  IN_PROCESS     @map("EN_PROCESO")
+  COLLECTED      @map("RECOLECTADA")
+  DONATED        @map("DONADA")
+  RECYCLED       @map("RECICLADA")
+  REPAIRED       @map("REPARADA")
+  COMPLETED      @map("COMPLETADA")
+  CANCELLED      @map("CANCELADA")
+
+  @@map("cat_estado_publicacion")
+}
+
+enum ClaimStatus {
+  PENDING   @map("PENDIENTE")
+  APPROVED  @map("APROBADA")
+  REJECTED  @map("RECHAZADA")
+  CANCELLED @map("CANCELADA")
+  COMPLETED @map("COMPLETADA")
+
+  @@map("cat_estado_solicitud_donacion")
+}
+
+enum PickupStatus {
+  REQUESTED @map("SOLICITADA")
+  SCHEDULED @map("PROGRAMADA")
+  ASSIGNED  @map("ASIGNADA")
+  ON_ROUTE  @map("EN_RUTA")
+  COMPLETED @map("COMPLETADA")
+  CANCELLED @map("CANCELADA")
+  FAILED    @map("FALLIDA")
+
+  @@map("cat_estado_recoleccion")
+}
+
+enum RepairStatus {
+  REQUESTED    @map("SOLICITADA")
+  QUOTED       @map("COTIZADA")
+  APPROVED     @map("APROBADA")
+  IN_WORK      @map("EN_TRABAJO")
+  REPAIRED     @map("REPARADA")
+  DELIVERED    @map("ENTREGADA")
+  UNREPAIRABLE @map("NO_REPARABLE")
+  CANCELLED    @map("CANCELADA")
+
+  @@map("cat_estado_reparacion")
+}
+
+enum WasteCenterType {
+  MUNICIPAL   @map("MUNICIPAL")
+  DONATION    @map("DONACION")
+  REPAIR      @map("REPARACION")
+  GREEN_POINT @map("PUNTO_VERDE")
+
+  @@map("cat_tipo_centro_ecologico")
+}
+
+enum NotificationType {
+  INFO    @map("INFORMATIVA")
+  SUCCESS @map("EXITO")
+  WARNING @map("ALERTA")
+  ERROR   @map("ERROR")
+
+  @@map("cat_tipo_notificacion")
+}
+
+enum PaymentMethod {
+  CASH     @map("EFECTIVO")
+  TRANSFER @map("TRANSFERENCIA")
+  CARD     @map("TARJETA")
+  DEMO     @map("DEMO")
+
+  @@map("cat_metodo_pago")
+}
+
+enum PaymentStatus {
+  PENDING    @map("PENDIENTE")
+  AUTHORIZED @map("AUTORIZADO")
+  PAID       @map("PAGADO")
+  FAILED     @map("FALLIDO")
+  REFUNDED   @map("REEMBOLSADO")
+  CANCELLED  @map("CANCELADO")
+
+  @@map("cat_estado_pago")
+}

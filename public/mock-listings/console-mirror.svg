@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800">
+  <rect width="1200" height="800" fill="#f6f1eb"/>
+  <rect x="0" y="560" width="1200" height="240" fill="#e9ddd0"/>
+  <circle cx="600" cy="230" r="130" fill="#c7b39b"/>
+  <circle cx="600" cy="230" r="108" fill="#f5f7f6"/>
+  <rect x="330" y="360" width="540" height="36" rx="12" fill="#2c2f33"/>
+  <rect x="360" y="396" width="42" height="180" rx="12" fill="#2c2f33"/>
+  <rect x="798" y="396" width="42" height="180" rx="12" fill="#2c2f33"/>
+  <rect x="430" y="388" width="70" height="28" rx="10" fill="#d2a567"/>
+  <rect x="520" y="388" width="70" height="28" rx="10" fill="#ffffff"/>
+  <rect x="610" y="388" width="70" height="28" rx="10" fill="#b6cab0"/>
+  <text x="80" y="98" fill="#624737" font-family="Arial, sans-serif" font-size="46" font-weight="700">Recibidor con espejo</text>
+</svg>

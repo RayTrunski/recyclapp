@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800">
+  <rect width="1200" height="800" fill="#f3f5f6"/>
+  <rect x="0" y="560" width="1200" height="240" fill="#dde1e4"/>
+  <rect x="270" y="230" width="660" height="320" rx="28" fill="#b4bcc1"/>
+  <rect x="310" y="270" width="430" height="240" rx="20" fill="#1f2328"/>
+  <rect x="336" y="294" width="378" height="192" rx="12" fill="#9fb0bc"/>
+  <rect x="780" y="280" width="90" height="26" rx="12" fill="#79848b"/>
+  <circle cx="825" cy="350" r="36" fill="#596168"/>
+  <circle cx="825" cy="440" r="36" fill="#596168"/>
+  <text x="80" y="98" fill="#3f4c55" font-family="Arial, sans-serif" font-size="46" font-weight="700">Microondas</text>
+</svg>

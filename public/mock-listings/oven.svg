@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800">
+  <rect width="1200" height="800" fill="#f2f4f5"/>
+  <rect x="0" y="560" width="1200" height="240" fill="#dee2e5"/>
+  <rect x="350" y="150" width="500" height="520" rx="26" fill="#9ca7ae"/>
+  <rect x="388" y="190" width="424" height="92" rx="18" fill="#c5ced3"/>
+  <circle cx="470" cy="235" r="18" fill="#707a82"/>
+  <circle cx="550" cy="235" r="18" fill="#707a82"/>
+  <circle cx="630" cy="235" r="18" fill="#707a82"/>
+  <circle cx="710" cy="235" r="18" fill="#707a82"/>
+  <rect x="410" y="320" width="380" height="250" rx="18" fill="#31363c"/>
+  <rect x="444" y="350" width="312" height="186" rx="10" fill="#b8cdd8"/>
+  <text x="80" y="98" fill="#42515d" font-family="Arial, sans-serif" font-size="46" font-weight="700">Horno electrico</text>
+</svg>

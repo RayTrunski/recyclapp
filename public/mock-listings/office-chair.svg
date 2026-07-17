@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800">
+  <rect width="1200" height="800" fill="#f3f6fb"/>
+  <rect x="0" y="560" width="1200" height="240" fill="#dde4ee"/>
+  <rect x="455" y="190" width="290" height="230" rx="60" fill="#2f343d"/>
+  <rect x="430" y="390" width="340" height="120" rx="42" fill="#414856"/>
+  <rect x="575" y="490" width="50" height="90" rx="14" fill="#626a78"/>
+  <circle cx="600" cy="610" r="46" fill="#4e5662"/>
+  <rect x="598" y="610" width="12" height="110" fill="#596170"/>
+  <rect x="450" y="650" width="300" height="20" rx="10" fill="#5a6270"/>
+  <circle cx="430" cy="660" r="28" fill="#3f4651"/>
+  <circle cx="770" cy="660" r="28" fill="#3f4651"/>
+  <text x="80" y="98" fill="#304557" font-family="Arial, sans-serif" font-size="46" font-weight="700">Silla de oficina</text>
+</svg>

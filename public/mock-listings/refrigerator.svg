@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800">
+  <rect width="1200" height="800" fill="#eef2f4"/>
+  <rect x="0" y="560" width="1200" height="240" fill="#d7dee3"/>
+  <rect x="380" y="120" width="440" height="520" rx="34" fill="#adb7bd"/>
+  <rect x="400" y="145" width="400" height="210" rx="24" fill="#d9e0e4"/>
+  <rect x="400" y="370" width="400" height="250" rx="24" fill="#c6d0d5"/>
+  <rect x="588" y="160" width="22" height="165" rx="10" fill="#6f7d84"/>
+  <rect x="590" y="395" width="18" height="190" rx="9" fill="#6f7d84"/>
+  <rect x="430" y="655" width="40" height="28" rx="10" fill="#7f8c93"/>
+  <rect x="730" y="655" width="40" height="28" rx="10" fill="#7f8c93"/>
+  <text x="80" y="98" fill="#334e5c" font-family="Arial, sans-serif" font-size="46" font-weight="700">Refrigerador</text>
+</svg>

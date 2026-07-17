@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800">
+  <rect width="1200" height="800" fill="#f5f3ee"/>
+  <rect x="0" y="560" width="1200" height="240" fill="#e6ddd0"/>
+  <rect x="270" y="260" width="660" height="60" rx="16" fill="#8f6542"/>
+  <rect x="320" y="320" width="70" height="260" rx="18" fill="#6e4d32"/>
+  <rect x="810" y="320" width="70" height="260" rx="18" fill="#6e4d32"/>
+  <rect x="530" y="320" width="220" height="170" rx="20" fill="#78553a"/>
+  <rect x="560" y="350" width="160" height="52" rx="12" fill="#8f6542"/>
+  <rect x="560" y="418" width="160" height="52" rx="12" fill="#8f6542"/>
+  <rect x="248" y="310" width="44" height="24" rx="10" fill="#444b53"/>
+  <text x="80" y="98" fill="#5a4330" font-family="Arial, sans-serif" font-size="46" font-weight="700">Escritorio</text>
+</svg>

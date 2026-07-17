@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800">
+  <rect width="1200" height="800" fill="#f4efe8"/>
+  <rect x="0" y="520" width="1200" height="280" fill="#d8e3dd"/>
+  <rect x="220" y="300" width="760" height="210" rx="48" fill="#8b9297"/>
+  <rect x="290" y="210" width="620" height="130" rx="44" fill="#9ea5aa"/>
+  <rect x="245" y="350" width="110" height="170" rx="24" fill="#6c747a"/>
+  <rect x="845" y="350" width="110" height="170" rx="24" fill="#6c747a"/>
+  <rect x="335" y="350" width="170" height="150" rx="28" fill="#b7bdc1"/>
+  <rect x="515" y="350" width="170" height="150" rx="28" fill="#b7bdc1"/>
+  <rect x="695" y="350" width="170" height="150" rx="28" fill="#b7bdc1"/>
+  <rect x="280" y="510" width="28" height="100" rx="12" fill="#5f4637"/>
+  <rect x="892" y="510" width="28" height="100" rx="12" fill="#5f4637"/>
+  <text x="80" y="98" fill="#2c4a3f" font-family="Arial, sans-serif" font-size="46" font-weight="700">Sofa modular</text>
+</svg>

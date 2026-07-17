@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800">
+  <rect width="1200" height="800" fill="#f8f3eb"/>
+  <rect x="0" y="560" width="1200" height="240" fill="#ece2d3"/>
+  <rect x="540" y="180" width="26" height="380" rx="12" fill="#2f3740"/>
+  <path d="M553 180 C600 130 665 120 735 150" fill="none" stroke="#2f3740" stroke-width="22" stroke-linecap="round"/>
+  <path d="M680 160 L790 160 L748 270 L648 270 Z" fill="#3c434a"/>
+  <circle cx="710" cy="175" r="16" fill="#5f676d"/>
+  <ellipse cx="553" cy="620" rx="90" ry="26" fill="#404850"/>
+  <circle cx="710" cy="320" r="110" fill="#fff5cf" opacity="0.45"/>
+  <text x="80" y="98" fill="#5a4333" font-family="Arial, sans-serif" font-size="46" font-weight="700">Lampara de pie</text>
+</svg>

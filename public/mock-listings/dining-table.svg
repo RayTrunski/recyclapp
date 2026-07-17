@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800">
+  <rect width="1200" height="800" fill="#faf4ea"/>
+  <rect x="0" y="560" width="1200" height="240" fill="#efe1ca"/>
+  <ellipse cx="600" cy="320" rx="300" ry="92" fill="#a06e45"/>
+  <rect x="560" y="320" width="80" height="170" rx="26" fill="#7a5335"/>
+  <rect x="410" y="410" width="34" height="180" rx="14" fill="#7a5335"/>
+  <rect x="756" y="410" width="34" height="180" rx="14" fill="#7a5335"/>
+  <rect x="260" y="340" width="120" height="170" rx="22" fill="#d7c0a4"/>
+  <rect x="820" y="340" width="120" height="170" rx="22" fill="#d7c0a4"/>
+  <text x="80" y="98" fill="#624129" font-family="Arial, sans-serif" font-size="46" font-weight="700">Mesa de comedor</text>
+</svg>
