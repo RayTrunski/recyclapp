@@ -14,6 +14,10 @@ export type LoginResult =
       user: {
         id: string;
         email: string;
+        name: string;
+        phone: string;
+        address: string;
+        avatarUrl: string | null;
         role: SessionRole;
         supabaseAuthUserId: string | null;
       };
@@ -33,6 +37,31 @@ function normalizarRol(rol: "USER" | "COLLECTOR" | "ADMIN"): SessionRole {
     default:
       return "user";
   }
+}
+
+function formatDisplayName(user: {
+  displayName: string | null;
+  firstName: string;
+  lastName: string | null;
+  email: string;
+}) {
+  const fullName = `${user.firstName} ${user.lastName ?? ""}`.trim();
+
+  return user.displayName ?? fullName ?? user.email;
+}
+
+function formatAddress(address?: {
+  addressLine1: string;
+  neighborhood: string | null;
+  city: string;
+} | null) {
+  if (!address) {
+    return "";
+  }
+
+  return [address.addressLine1, address.neighborhood, address.city]
+    .filter(Boolean)
+    .join(", ");
 }
 
 export async function loginWithCredentials(
@@ -60,6 +89,18 @@ export async function loginWithCredentials(
       role: true,
       passwordHash: true,
       supabaseAuthUserId: true,
+      firstName: true,
+      lastName: true,
+      displayName: true,
+      phone: true,
+      avatarUrl: true,
+      defaultAddress: {
+        select: {
+          addressLine1: true,
+          neighborhood: true,
+          city: true,
+        },
+      },
     },
   });
 
@@ -84,6 +125,10 @@ export async function loginWithCredentials(
     user: {
       id: user.id,
       email: user.email,
+      name: formatDisplayName(user),
+      phone: user.phone ?? "",
+      address: formatAddress(user.defaultAddress),
+      avatarUrl: user.avatarUrl,
       role: normalizarRol(user.role),
       supabaseAuthUserId: user.supabaseAuthUserId,
     },

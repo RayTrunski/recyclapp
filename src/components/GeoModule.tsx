@@ -12,7 +12,16 @@ import {
   Wrench,
 } from "lucide-react";
 
-import type { RepairWorkshopProfile, WasteCenter } from "../types";
+import type {
+  RepairWorkshopProfile,
+  UserProfile,
+  WasteCenter,
+} from "../types";
+
+interface GeoModuleProps {
+  currentUser: UserProfile | null;
+  onLoginRequest: () => void;
+}
 
 const OperationalCentersMap = dynamic(() => import("./OperationalCentersMap"), {
   ssr: false,
@@ -185,12 +194,41 @@ function buildWorkshopCenter(workshop: RepairWorkshopProfile, index: number): De
   };
 }
 
-export default function GeoModule() {
+export default function GeoModule({
+  currentUser,
+  onLoginRequest,
+}: GeoModuleProps) {
   const [dbWorkshops, setDbWorkshops] = useState<RepairWorkshopProfile[]>([]);
   const [isLoadingWorkshops, setIsLoadingWorkshops] = useState(true);
   const [workshopsError, setWorkshopsError] = useState("");
   const [selectedCenterId, setSelectedCenterId] = useState("");
   const [workshopSearch, setWorkshopSearch] = useState("");
+
+  if (!currentUser) {
+    return (
+      <div className="bg-white rounded-2xl p-8 border border-slate-100 shadow-xs text-center max-w-lg mx-auto my-12 flex flex-col gap-6">
+        <div className="w-16 h-16 bg-emerald-50 rounded-full flex items-center justify-center text-emerald-600 mx-auto">
+          <MapPin className="w-8 h-8" />
+        </div>
+        <div>
+          <h3 className="font-display font-semibold text-slate-800 text-lg">
+            Inicia sesión para explorar centros
+          </h3>
+          <p className="text-slate-500 text-xs mt-2 leading-relaxed">
+            El mapa de centros operativos, talleres y puntos verdes requiere una
+            sesión activa para coordinar recolecciones, entregas y rutas dentro
+            de la demo.
+          </p>
+        </div>
+        <button
+          onClick={onLoginRequest}
+          className="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs transition-colors shadow-md shadow-emerald-200 cursor-pointer"
+        >
+          Iniciar sesión ahora
+        </button>
+      </div>
+    );
+  }
 
   useEffect(() => {
     let cancelled = false;

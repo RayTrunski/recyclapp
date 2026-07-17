@@ -46,7 +46,9 @@ export default function Navbar({
   const notificationListRef = useRef<HTMLDivElement | null>(null);
   const notificationItemRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
-  const unreadCount = notifications.filter((n) => !n.read).length;
+  const unreadCount = currentUser
+    ? notifications.filter((n) => !n.read).length
+    : 0;
   const ThemeIcon = themeMode === "light" ? Sun : Moon;
   const themeLabel = themeMode === "light" ? "Modo claro" : "Modo oscuro";
   const notificationLookup = useMemo(
@@ -109,7 +111,7 @@ export default function Navbar({
 
   return (
     <header className="sticky top-0 z-40 w-full bg-white/95 backdrop-blur-md border-b border-slate-100 shadow-xs">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="max-w-7xl mx-auto px-3 sm:px-5 lg:px-6">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
           <div
@@ -131,7 +133,7 @@ export default function Navbar({
           </div>
 
           {/* Navigation Links */}
-          <nav className="hidden lg:flex items-center gap-1.5">
+          <nav className="hidden lg:flex items-center gap-1.5 ml-7 xl:ml-10">
             {mainNavItems.map((item) => {
               const Icon = item.icon;
               const isActive = activeTab === item.id;
@@ -177,82 +179,83 @@ export default function Navbar({
               <ThemeIcon className="h-4 w-4" />
             </button>
 
-            {/* Notification drop */}
-            <div className="relative">
-              <button
-                onClick={() => setShowNotifDropdown(!showNotifDropdown)}
-                className="p-2 text-slate-500 hover:text-slate-800 hover:bg-slate-50 rounded-xl transition-colors relative"
-              >
-                <Bell className="w-5 h-5" />
-                {unreadCount > 0 && (
-                  <span className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center animate-pulse">
-                    {unreadCount}
-                  </span>
-                )}
-              </button>
-
-              {showNotifDropdown && (
-                <div className="absolute right-0 mt-2.5 w-80 bg-white rounded-xl shadow-lg border border-slate-100 py-2.5 z-50 text-sm">
-                  <div className="px-4 py-1.5 border-b border-slate-100 flex items-center justify-between font-semibold text-slate-800">
-                    <span>Notificaciones</span>
-                    <span className="text-xs text-slate-400 font-normal">
-                      {unreadCount} nuevas
+            {currentUser && (
+              <div className="relative">
+                <button
+                  onClick={() => setShowNotifDropdown(!showNotifDropdown)}
+                  className="p-2 text-slate-500 hover:text-slate-800 hover:bg-slate-50 rounded-xl transition-colors relative"
+                >
+                  <Bell className="w-5 h-5" />
+                  {unreadCount > 0 && (
+                    <span className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center animate-pulse">
+                      {unreadCount}
                     </span>
-                  </div>
-                  <div
-                    ref={notificationListRef}
-                    className="max-h-64 overflow-y-auto scrollbar-thin divide-y divide-slate-50"
-                  >
-                    {notifications.length === 0 ? (
-                      <div className="px-4 py-6 text-center text-slate-400 text-xs">
-                        No tienes notificaciones
-                      </div>
-                    ) : (
-                      notifications.map((notif) => (
-                        <div
-                          key={notif.id}
-                          ref={(element) => {
-                            notificationItemRefs.current[notif.id] = element;
-                          }}
-                          data-notification-id={notif.id}
-                          onClick={() => {
-                            onNotificationOpen(notif);
-                            setShowNotifDropdown(false);
-                          }}
-                          className={`px-4 py-2.5 hover:bg-slate-50 transition-colors cursor-pointer text-xs ${
-                            !notif.read ? "bg-emerald-50/10" : ""
-                          }`}
-                        >
-                          <div className="flex justify-between items-start gap-2">
-                            <span
-                              className={`font-semibold ${!notif.read ? "text-slate-800" : "text-slate-600"}`}
-                            >
-                              {notif.title}
-                            </span>
-                            {!notif.read && (
-                              <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0 mt-1" />
-                            )}
-                          </div>
-                          <p className="text-slate-500 text-[11px] mt-0.5 leading-normal">
-                            {notif.description}
-                          </p>
-                          <span className="text-[9px] text-slate-400 mt-1 block">
-                            {notif.timestamp}
-                          </span>
+                  )}
+                </button>
+
+                {showNotifDropdown && (
+                  <div className="absolute right-0 mt-2.5 w-80 bg-white rounded-xl shadow-lg border border-slate-100 py-2.5 z-50 text-sm">
+                    <div className="px-4 py-1.5 border-b border-slate-100 flex items-center justify-between font-semibold text-slate-800">
+                      <span>Notificaciones</span>
+                      <span className="text-xs text-slate-400 font-normal">
+                        {unreadCount} nuevas
+                      </span>
+                    </div>
+                    <div
+                      ref={notificationListRef}
+                      className="max-h-64 overflow-y-auto scrollbar-thin divide-y divide-slate-50"
+                    >
+                      {notifications.length === 0 ? (
+                        <div className="px-4 py-6 text-center text-slate-400 text-xs">
+                          No tienes notificaciones
                         </div>
-                      ))
-                    )}
+                      ) : (
+                        notifications.map((notif) => (
+                          <div
+                            key={notif.id}
+                            ref={(element) => {
+                              notificationItemRefs.current[notif.id] = element;
+                            }}
+                            data-notification-id={notif.id}
+                            onClick={() => {
+                              onNotificationOpen(notif);
+                              setShowNotifDropdown(false);
+                            }}
+                            className={`px-4 py-2.5 hover:bg-slate-50 transition-colors cursor-pointer text-xs ${
+                              !notif.read ? "bg-emerald-50/10" : ""
+                            }`}
+                          >
+                            <div className="flex justify-between items-start gap-2">
+                              <span
+                                className={`font-semibold ${!notif.read ? "text-slate-800" : "text-slate-600"}`}
+                              >
+                                {notif.title}
+                              </span>
+                              {!notif.read && (
+                                <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0 mt-1" />
+                              )}
+                            </div>
+                            <p className="text-slate-500 text-[11px] mt-0.5 leading-normal">
+                              {notif.description}
+                            </p>
+                            <span className="text-[9px] text-slate-400 mt-1 block">
+                              {notif.timestamp}
+                            </span>
+                          </div>
+                        ))
+                      )}
+                    </div>
                   </div>
-                </div>
-              )}
-            </div>
+                )}
+              </div>
+            )}
 
             {/* Profile Picker */}
             {currentUser ? (
               <div className="relative">
                 <button
                   onClick={() => setShowProfileDropdown(!showProfileDropdown)}
-                  className="flex items-center gap-2 p-1 pr-2.5 rounded-full hover:bg-slate-50 border border-slate-100 transition-all text-left"
+                  className="flex min-w-[11rem] items-center gap-2 rounded-2xl border border-slate-100 px-1.5 py-1.5 pr-3 hover:bg-slate-50 transition-all text-left"
                 >
                   <img
                     src={currentUser.avatar}
@@ -260,11 +263,11 @@ export default function Navbar({
                     className="w-8 h-8 rounded-full border border-emerald-100"
                     referrerPolicy="no-referrer"
                   />
-                  <div className="hidden sm:block">
-                    <div className="text-xs font-semibold text-slate-800 leading-tight">
+                  <div className="hidden min-w-0 flex-1 sm:block">
+                    <div className="text-xs font-semibold leading-tight text-slate-800">
                       {currentUser.name}
                     </div>
-                    <div className="text-[10px] text-emerald-600 uppercase tracking-wider font-semibold font-mono leading-none">
+                    <div className="mt-0.5 text-[10px] text-emerald-600 uppercase tracking-wider font-semibold font-mono leading-none">
                       {currentUser.role === "admin"
                         ? "Administrador"
                         : currentUser.role === "collector"

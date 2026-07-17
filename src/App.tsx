@@ -135,6 +135,33 @@ export default function App() {
   );
   const [profilePhone, setProfilePhone] = useState(currentUser?.phone || "");
 
+  const refreshListings = async () => {
+    try {
+      setIsListingsLoading(true);
+      setListingsError(null);
+
+      const response = await fetch("/api/listings", {
+        cache: "no-store",
+      });
+
+      if (!response.ok) {
+        throw new Error("No fue posible cargar las publicaciones.");
+      }
+
+      const payload = (await response.json()) as Listing[];
+      setListings(payload);
+      return payload;
+    } catch (error) {
+      console.error("Error cargando artículos:", error);
+      setListingsError(
+        "No se pudieron cargar los artículos desde la base de datos.",
+      );
+      return [];
+    } finally {
+      setIsListingsLoading(false);
+    }
+  };
+
   const messageNotifications = useMemo(() => {
     return messageConversations
       .map(buildMessageNotification)
@@ -583,6 +610,14 @@ export default function App() {
     };
   }, []);
 
+  useEffect(() => {
+    if (activeTab !== "articulos") {
+      return;
+    }
+
+    void refreshListings();
+  }, [activeTab]);
+
   // Notification action handler
   const handleReadNotification = (notification: Notification) => {
     if (notification.category === "message") {
@@ -637,6 +672,7 @@ export default function App() {
     setProfileAddress(user.address);
     setProfilePhone(user.phone);
     setShowAuthModal(false);
+    void refreshListings();
 
     // Welcome message
     const welcomeNotif: Notification = {
@@ -1039,7 +1075,12 @@ export default function App() {
               />
             )}
 
-            {activeTab === "centros" && <GeoModule />}
+            {activeTab === "centros" && (
+              <GeoModule
+                currentUser={currentUser}
+                onLoginRequest={() => setShowAuthModal(true)}
+              />
+            )}
 
             {activeTab === "estadisticas" && (
               <StatsModule currentUser={currentUser} />

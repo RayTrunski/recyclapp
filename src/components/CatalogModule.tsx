@@ -45,8 +45,8 @@ export default function CatalogModule({ listings, currentUser, onClaimItem, onLo
     if (selectedCategory !== "all" && listing.category !== selectedCategory) return false;
     // Action match
     if (selectedAction !== "all" && listing.action !== selectedAction) return false;
-    // Status approved only/pending unless is owner
-    if (listing.status !== "aprobado" && listing.ownerId !== currentUser?.id) return false;
+    // Pending listings remain private to the owner; the rest stay visible to everyone.
+    if (listing.status === "pendiente" && listing.ownerId !== currentUser?.id) return false;
     // Search match
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
