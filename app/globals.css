@@ -30,6 +30,9 @@ body {
   background: #f8fafc;
   color: #0f172a;
   font-family: var(--font-sans);
+  transition:
+    background-color 220ms ease,
+    color 220ms ease;
 }
 
 .leaflet-container {

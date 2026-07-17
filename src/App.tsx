@@ -40,6 +40,9 @@ import { CATEGORY_FALLBACK_IMAGES } from "../lib/listing-images";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 const SESSION_STORAGE_KEY = "recyclapp.remembered-session";
+const THEME_STORAGE_KEY = "recyclapp.theme-mode";
+
+type ThemeMode = "light" | "dark";
 
 const INITIAL_NOTIFICATIONS: Notification[] = [
   {
@@ -100,6 +103,7 @@ function buildMessageNotification(conversation: ConversationSummary): Notificati
 export default function App() {
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
   const [shouldPersistSession, setShouldPersistSession] = useState(false);
+  const [themeMode, setThemeMode] = useState<ThemeMode>("light");
   const [listings, setListings] = useState<Listing[]>([]);
   const [pickupRequests, setPickupRequests] = useState<PickupRequest[]>([]);
   const [repairRequests, setRepairRequests] = useState<RepairRequest[]>([]);
@@ -175,6 +179,99 @@ export default function App() {
       window.localStorage.removeItem(SESSION_STORAGE_KEY);
     }
   }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const storedThemeMode = window.localStorage.getItem(
+      THEME_STORAGE_KEY,
+    ) as ThemeMode | null;
+
+    if (storedThemeMode === "light" || storedThemeMode === "dark") {
+      setThemeMode(storedThemeMode);
+      return;
+    }
+
+    const preferredThemeMode = window.matchMedia("(prefers-color-scheme: dark)")
+      .matches
+      ? "dark"
+      : "light";
+
+    setThemeMode(preferredThemeMode);
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    let isCancelled = false;
+
+    window.localStorage.setItem(THEME_STORAGE_KEY, themeMode);
+    document.documentElement.style.colorScheme = themeMode;
+
+    const syncTheme = async () => {
+      try {
+        const DarkReader = await import("darkreader");
+
+        if (isCancelled) {
+          return;
+        }
+
+        DarkReader.setFetchMethod(window.fetch);
+
+        if (themeMode === "dark") {
+          DarkReader.enable(
+            {
+              brightness: 100,
+              contrast: 95,
+              sepia: 10,
+              darkSchemeBackgroundColor: "#07131d",
+              darkSchemeTextColor: "#e8f2f8",
+            },
+            {
+              css: `
+                img[alt="Logo ReCyClapp"],
+                img[alt="ReCyClapp"] {
+                  filter: none !important;
+                }
+              `,
+              ignoreImageAnalysis: [
+                'img[alt="Logo ReCyClapp"]',
+                'img[alt="ReCyClapp"]',
+              ],
+              invert: [],
+              ignoreInlineStyle: [],
+              disableStyleSheetsProxy: true,
+              ignoreCSSUrl: [
+                "fonts.googleapis.com",
+                "fonts.gstatic.com",
+              ],
+            },
+          );
+        } else {
+          DarkReader.disable();
+        }
+      } catch (error) {
+        console.warn("No fue posible aplicar DarkReader:", error);
+      }
+    };
+
+    void syncTheme();
+
+    return () => {
+      isCancelled = true;
+      void import("darkreader")
+        .then((DarkReader) => {
+          DarkReader.disable();
+        })
+        .catch(() => {
+          // Ignoramos el cleanup si DarkReader no llegó a cargarse.
+        });
+    };
+  }, [themeMode]);
 
   const loadPickupRequests = async (userId: string) => {
     const response = await fetch(
@@ -814,7 +911,7 @@ export default function App() {
   );
 
   return (
-    <div className="min-h-screen bg-slate-50/70 text-slate-900 font-sans flex flex-col justify-between">
+    <div className="min-h-screen bg-slate-50/70 text-slate-900 font-sans flex flex-col justify-between transition-colors duration-300">
       {/* 1. Header Navigation */}
       <Navbar
         currentUser={currentUser}
@@ -825,6 +922,12 @@ export default function App() {
         onLoginClick={() => setShowAuthModal(true)}
         onNotificationRead={handleReadNotification}
         onNotificationOpen={handleOpenNotification}
+        themeMode={themeMode}
+        onThemeToggle={() =>
+          setThemeMode((currentMode) =>
+            currentMode === "light" ? "dark" : "light",
+          )
+        }
       />
 
       {/* Main Container */}
@@ -1194,9 +1297,9 @@ export default function App() {
                 className="h-10 w-auto object-contain"
               />
               <img
-                src="/logos/logoTexto.png"
+                src="/logos/recyclappTexto.png"
                 alt="ReCyClapp"
-                className="h-8 w-auto object-contain"
+                className="h-10 w-auto object-contain"
               />
             </div>
             <p className="text-slate-400 leading-relaxed max-w-sm">

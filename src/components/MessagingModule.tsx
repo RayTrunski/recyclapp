@@ -737,311 +737,320 @@ export default function MessagingModule({
 
         <div className="grid gap-6 xl:grid-cols-[minmax(290px,0.68fr)_minmax(0,1.32fr)]">
           <div className="rounded-[2rem] border border-slate-100 bg-white p-4 shadow-xs">
-          <div className="flex items-center justify-between gap-3 border-b border-slate-100 px-1 pb-4">
-            <div>
-              <h3 className="font-display text-lg font-semibold text-slate-900">
-                Bandeja prioritaria
-              </h3>
-              <p className="mt-1 text-sm text-slate-500">
-                Hilos listos para coordinar acción.
-              </p>
+            <div className="flex items-center justify-between gap-3 border-b border-slate-100 px-1 pb-4">
+              <div>
+                <h3 className="font-display text-lg font-semibold text-slate-900">
+                  Bandeja prioritaria
+                </h3>
+                <p className="mt-1 text-sm text-slate-500">
+                  Hilos listos para coordinar acción.
+                </p>
+              </div>
+              <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-semibold text-slate-600">
+                {currentUser.name}
+              </span>
             </div>
-            <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-semibold text-slate-600">
-              {currentUser.name}
-            </span>
+
+            {isLoading ? (
+              <div className="flex min-h-[280px] items-center justify-center text-slate-400">
+                <LoaderCircle className="h-5 w-5 animate-spin" />
+              </div>
+            ) : conversations.length === 0 ? (
+              <div className="mt-6 rounded-3xl border border-dashed border-slate-200 bg-slate-50 p-6 text-sm leading-7 text-slate-500">
+                Aún no tienes conversaciones abiertas. En cuanto solicites una
+                publicación o recibas interés sobre una tuya, el hilo aparecerá
+                aquí automáticamente.
+              </div>
+            ) : (
+              <div className="mt-4 space-y-3">
+                {conversations.map((conversation) => {
+                  const Icon = getConversationIcon(conversation.subject);
+                  const isActive = conversation.id === selectedConversationId;
+                  const accent = getConversationAccent(conversation.subject);
+
+                  return (
+                    <button
+                      key={conversation.id}
+                      onClick={() => setSelectedConversationId(conversation.id)}
+                      className={`w-full rounded-[1.7rem] border p-3.5 text-left transition-all ${
+                        isActive
+                          ? "border-emerald-200 bg-emerald-50/70 shadow-sm"
+                          : "border-slate-100 bg-slate-50/70 hover:border-slate-200 hover:bg-white"
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-start gap-3">
+                          <div className="rounded-2xl bg-white p-3 text-slate-700 shadow-sm">
+                            <Icon className="h-4 w-4" />
+                          </div>
+                          <div className="min-w-0">
+                            <div
+                              className={`inline-flex rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.18em] ${accent}`}
+                            >
+                              {conversation.listingTitle
+                                ? "Publicación vinculada"
+                                : "Coordinación"}
+                            </div>
+                            <h4 className="mt-3 line-clamp-1 font-display text-xl font-semibold text-slate-900">
+                              {conversation.otherParticipant?.name ??
+                                conversation.subject}
+                            </h4>
+                            <p className="mt-1 line-clamp-1 text-sm text-slate-500">
+                              {conversation.listingTitle ??
+                                conversation.subject}
+                            </p>
+                          </div>
+                        </div>
+
+                        {conversation.unreadCount > 0 && (
+                          <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-emerald-600 px-2 text-[11px] font-bold text-white">
+                            {conversation.unreadCount}
+                          </span>
+                        )}
+                      </div>
+
+                      <p className="mt-4 line-clamp-2 text-sm leading-6 text-slate-600">
+                        {buildMessagePreview(conversation)}
+                      </p>
+
+                      <div className="mt-3 flex items-center justify-between gap-3 text-xs text-slate-400">
+                        <div className="flex items-center gap-2">
+                          <Clock3 className="h-3.5 w-3.5" />
+                          {formatAbsoluteDate(conversation.lastActivityAt)}
+                        </div>
+                        {conversation.otherParticipant && (
+                          <div className="flex items-center gap-1.5">
+                            <span
+                              className={`h-2.5 w-2.5 rounded-full ${
+                                onlineParticipantIds.includes(
+                                  conversation.otherParticipant.id,
+                                )
+                                  ? "bg-emerald-500"
+                                  : "bg-slate-300"
+                              }`}
+                            />
+                            {onlineParticipantIds.includes(
+                              conversation.otherParticipant.id,
+                            )
+                              ? "En línea"
+                              : "Sin presencia"}
+                          </div>
+                        )}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
-          {isLoading ? (
-            <div className="flex min-h-[280px] items-center justify-center text-slate-400">
-              <LoaderCircle className="h-5 w-5 animate-spin" />
-            </div>
-          ) : conversations.length === 0 ? (
-            <div className="mt-6 rounded-3xl border border-dashed border-slate-200 bg-slate-50 p-6 text-sm leading-7 text-slate-500">
-              Aún no tienes conversaciones abiertas. En cuanto solicites una
-              publicación o recibas interés sobre una tuya, el hilo aparecerá
-              aquí automáticamente.
-            </div>
-          ) : (
-            <div className="mt-4 space-y-3">
-              {conversations.map((conversation) => {
-                const Icon = getConversationIcon(conversation.subject);
-                const isActive = conversation.id === selectedConversationId;
-                const accent = getConversationAccent(conversation.subject);
-
-                return (
-                  <button
-                    key={conversation.id}
-                    onClick={() => setSelectedConversationId(conversation.id)}
-                    className={`w-full rounded-[1.7rem] border p-3.5 text-left transition-all ${
-                      isActive
-                        ? "border-emerald-200 bg-emerald-50/70 shadow-sm"
-                        : "border-slate-100 bg-slate-50/70 hover:border-slate-200 hover:bg-white"
-                    }`}
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex items-start gap-3">
-                        <div className="rounded-2xl bg-white p-3 text-slate-700 shadow-sm">
-                          <Icon className="h-4 w-4" />
-                        </div>
-                        <div className="min-w-0">
-                          <div
-                            className={`inline-flex rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.18em] ${accent}`}
-                          >
-                            {conversation.listingTitle
-                              ? "Publicación vinculada"
-                              : "Coordinación"}
-                          </div>
-                          <h4 className="mt-3 line-clamp-1 font-display text-xl font-semibold text-slate-900">
-                            {conversation.otherParticipant?.name ??
-                              conversation.subject}
-                          </h4>
-                          <p className="mt-1 line-clamp-1 text-sm text-slate-500">
-                            {conversation.listingTitle ?? conversation.subject}
-                          </p>
-                        </div>
-                      </div>
-
-                      {conversation.unreadCount > 0 && (
-                        <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-emerald-600 px-2 text-[11px] font-bold text-white">
-                          {conversation.unreadCount}
-                        </span>
-                      )}
-                    </div>
-
-                    <p className="mt-4 line-clamp-2 text-sm leading-6 text-slate-600">
-                      {buildMessagePreview(conversation)}
-                    </p>
-
-                    <div className="mt-3 flex items-center justify-between gap-3 text-xs text-slate-400">
-                      <div className="flex items-center gap-2">
-                        <Clock3 className="h-3.5 w-3.5" />
-                        {formatAbsoluteDate(conversation.lastActivityAt)}
-                      </div>
-                      {conversation.otherParticipant && (
-                        <div className="flex items-center gap-1.5">
-                          <span
-                            className={`h-2.5 w-2.5 rounded-full ${
-                              onlineParticipantIds.includes(
-                                conversation.otherParticipant.id,
-                              )
-                                ? "bg-emerald-500"
-                                : "bg-slate-300"
-                            }`}
-                          />
-                          {onlineParticipantIds.includes(
-                            conversation.otherParticipant.id,
-                          )
-                            ? "En línea"
-                            : "Sin presencia"}
-                        </div>
-                      )}
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          )}
-        </div>
-
           <div className="rounded-[2rem] border border-slate-100 bg-white p-5 shadow-xs">
-          {!activeConversation ? (
-            <div className="flex min-h-[420px] items-center justify-center rounded-[1.75rem] border border-dashed border-slate-200 bg-slate-50 p-8 text-center text-sm leading-7 text-slate-500">
-              Selecciona una conversación para ver el historial, compartir tu
-              ubicación y abrir en mapa cualquier snapshot enviado.
-            </div>
-          ) : (
-            <>
-              <div className="flex flex-col gap-4 border-b border-slate-100 pb-5 sm:flex-row sm:items-start sm:justify-between">
-                <div>
-                  <div
-                    className={`inline-flex rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.18em] ${getConversationAccent(activeConversation.subject)}`}
-                  >
-                    {activeSummary?.listingTitle
-                      ? "Publicación"
-                      : "Hilo activo"}
-                  </div>
-                  <h3 className="mt-3 font-display text-2xl font-semibold text-slate-900">
-                    {peerParticipant?.name ?? activeConversation.subject}
-                  </h3>
-                  <p className="mt-1 text-sm text-slate-500">
-                    {activeConversation.listing?.title ??
-                      activeConversation.subject}
-                  </p>
-                </div>
-                <div className="space-y-2">
-                  <div className="rounded-3xl bg-slate-50 px-4 py-3 text-sm text-slate-600">
-                    <span className="font-semibold text-slate-900">
-                      Estado del hilo:
-                    </span>{" "}
-                    Coordinación activa
-                  </div>
-                  {peerParticipant && (
-                    <div className="flex items-center justify-end gap-2 text-xs text-slate-500">
-                      <span
-                        className={`h-2.5 w-2.5 rounded-full ${
-                          onlineParticipantIds.includes(peerParticipant.userId)
-                            ? "bg-emerald-500"
-                            : "bg-slate-300"
-                        }`}
-                      />
-                      {onlineParticipantIds.includes(peerParticipant.userId)
-                        ? "Usuario conectado"
-                        : "Usuario sin presencia"}
-                    </div>
-                  )}
-                </div>
+            {!activeConversation ? (
+              <div className="flex min-h-[420px] items-center justify-center rounded-[1.75rem] border border-dashed border-slate-200 bg-slate-50 p-8 text-center text-sm leading-7 text-slate-500">
+                Selecciona una conversación para ver el historial, compartir tu
+                ubicación y abrir en mapa cualquier snapshot enviado.
               </div>
-
-              <div className="mt-5 space-y-5">
-                <div className="max-h-[34rem] space-y-4 overflow-y-auto pr-1 scrollbar-thin">
-                  {activeConversation.messages.length === 0 ? (
-                    <div className="rounded-3xl border border-dashed border-slate-200 bg-slate-50 p-6 text-sm text-slate-500">
-                      Este hilo todavía no tiene mensajes.
+            ) : (
+              <>
+                <div className="flex flex-col gap-4 border-b border-slate-100 pb-5 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <div
+                      className={`inline-flex rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.18em] ${getConversationAccent(activeConversation.subject)}`}
+                    >
+                      {activeSummary?.listingTitle
+                        ? "Publicación"
+                        : "Hilo activo"}
                     </div>
-                  ) : (
-                    activeConversation.messages.map((message) => {
-                      const isMine = message.senderUserId === currentUser.id;
-                      const isSelectedLocation =
-                        selectedLocationMessageId === message.id &&
-                        message.location != null;
+                    <h3 className="mt-3 font-display text-2xl font-semibold text-slate-900">
+                      {peerParticipant?.name ?? activeConversation.subject}
+                    </h3>
+                    <p className="mt-1 text-sm text-slate-500">
+                      {activeConversation.listing?.title ??
+                        activeConversation.subject}
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="rounded-3xl bg-slate-50 px-4 py-3 text-sm text-slate-600">
+                      <span className="font-semibold text-slate-900">
+                        Estado del hilo:
+                      </span>{" "}
+                      Coordinación activa
+                    </div>
+                    {peerParticipant && (
+                      <div className="flex items-center justify-end gap-2 text-xs text-slate-500">
+                        <span
+                          className={`h-2.5 w-2.5 rounded-full ${
+                            onlineParticipantIds.includes(
+                              peerParticipant.userId,
+                            )
+                              ? "bg-emerald-500"
+                              : "bg-slate-300"
+                          }`}
+                        />
+                        {onlineParticipantIds.includes(peerParticipant.userId)
+                          ? "Usuario conectado"
+                          : "Usuario sin presencia"}
+                      </div>
+                    )}
+                  </div>
+                </div>
 
-                      return (
-                        <div
-                          key={message.id}
-                          className={`flex ${isMine ? "justify-end" : "justify-start"}`}
-                        >
+                <div className="mt-5 space-y-5">
+                  <div className="max-h-[34rem] space-y-4 overflow-y-auto pr-1 scrollbar-thin">
+                    {activeConversation.messages.length === 0 ? (
+                      <div className="rounded-3xl border border-dashed border-slate-200 bg-slate-50 p-6 text-sm text-slate-500">
+                        Este hilo todavía no tiene mensajes.
+                      </div>
+                    ) : (
+                      activeConversation.messages.map((message) => {
+                        const isMine = message.senderUserId === currentUser.id;
+                        const isSelectedLocation =
+                          selectedLocationMessageId === message.id &&
+                          message.location != null;
+
+                        return (
                           <div
-                            className={`max-w-[92%] rounded-3xl px-4 py-3 text-sm leading-6 shadow-sm lg:max-w-[78%] ${
-                              isMine
-                                ? "bg-emerald-600 text-white"
-                                : "border border-slate-100 bg-slate-50 text-slate-700"
-                            }`}
+                            key={message.id}
+                            className={`flex ${isMine ? "justify-end" : "justify-start"}`}
                           >
                             <div
-                              className={`text-[11px] font-semibold ${
-                                isMine ? "text-emerald-50" : "text-slate-500"
+                              className={`max-w-[92%] rounded-3xl px-4 py-3 text-sm leading-6 shadow-sm lg:max-w-[78%] ${
+                                isMine
+                                  ? "bg-emerald-600 text-white"
+                                  : "border border-slate-100 bg-slate-50 text-slate-700"
                               }`}
                             >
-                              {isMine ? "Tú" : message.senderName}
-                            </div>
-                            {message.body && (
-                              <p className="mt-1">{message.body}</p>
-                            )}
-
-                            {message.location && (
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  setSelectedLocationMessageId(message.id)
-                                }
-                                className={`mt-3 block w-full rounded-2xl border px-3 py-3 text-left text-xs transition ${
-                                  isMine
-                                    ? isSelectedLocation
-                                      ? "border-emerald-100 bg-emerald-500/50 text-emerald-50"
-                                      : "border-transparent bg-emerald-500/35 text-emerald-50 hover:bg-emerald-500/50"
-                                    : isSelectedLocation
-                                      ? "border-emerald-200 bg-emerald-50 text-slate-700"
-                                      : "border-slate-200 bg-white text-slate-600 hover:border-emerald-200 hover:bg-emerald-50/60"
+                              <div
+                                className={`text-[11px] font-semibold ${
+                                  isMine ? "text-emerald-50" : "text-slate-500"
                                 }`}
                               >
-                                <div className="flex items-center justify-between gap-3">
-                                  <div className="flex items-center gap-2 font-semibold">
-                                    <MapPin className="h-3.5 w-3.5" />
-                                    Ubicación compartida
-                                  </div>
-                                  <span className="text-[10px] font-bold uppercase tracking-[0.18em]">
-                                    Abrir mapa
-                                  </span>
-                                </div>
-                                <div className="mt-2 space-y-1">
-                                  <p>
-                                    {buildLocationSummary(message.location)}
-                                  </p>
-                                  <p>
-                                    Precisión:{" "}
-                                    {message.location.accuracyMeters
-                                      ? `${Math.round(message.location.accuracyMeters)} m`
-                                      : "No disponible"}
-                                  </p>
-                                </div>
-                              </button>
-                            )}
+                                {isMine ? "Tú" : message.senderName}
+                              </div>
+                              {message.body && (
+                                <p className="mt-1">{message.body}</p>
+                              )}
 
-                            <div
-                              className={`mt-2 text-[11px] ${
-                                isMine ? "text-emerald-100" : "text-slate-400"
-                              }`}
-                            >
-                              {formatShortTime(message.createdAt)}
+                              {message.location && (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setSelectedLocationMessageId(message.id)
+                                  }
+                                  title="Haz clic para abrir esta ubicación en el mapa sin mover el hilo."
+                                  className={`group relative mt-3 block w-full rounded-2xl border px-3 py-2.5 text-left text-xs transition ${
+                                    isMine
+                                      ? isSelectedLocation
+                                        ? "border-emerald-100 bg-emerald-500/50 text-emerald-50"
+                                        : "border-transparent bg-emerald-500/35 text-emerald-50 hover:bg-emerald-500/50"
+                                      : isSelectedLocation
+                                        ? "border-emerald-200 bg-emerald-50 text-slate-700"
+                                        : "border-slate-200 bg-white text-slate-600 hover:border-emerald-200 hover:bg-emerald-50/60"
+                                  }`}
+                                >
+                                  <div className="flex items-center justify-between gap-3">
+                                    <div className="flex items-center gap-2 font-semibold">
+                                      <MapPin className="h-3.5 w-3.5" />
+                                      Ubicación compartida
+                                    </div>
+                                    <span className="text-[10px] font-bold uppercase tracking-[0.18em]">
+                                      Abrir mapa
+                                    </span>
+                                  </div>
+                                  <div className="mt-2 space-y-1">
+                                    <p>
+                                      {buildLocationSummary(message.location)}
+                                    </p>
+                                    <p>
+                                      Precisión:{" "}
+                                      {message.location.accuracyMeters
+                                        ? `${Math.round(message.location.accuracyMeters)} m`
+                                        : "No disponible"}
+                                    </p>
+                                  </div>
+                                  <span
+                                    className={`pointer-events-none absolute -top-11 left-3 hidden rounded-xl px-3 py-2 text-[11px] font-medium shadow-lg group-hover:block ${
+                                      isMine
+                                        ? "bg-emerald-950 text-emerald-50"
+                                        : "bg-slate-900 text-white"
+                                    }`}
+                                  >
+                                    Haz clic para abrir el mapa.
+                                  </span>
+                                </button>
+                              )}
+
+                              <div
+                                className={`mt-2 text-[11px] ${
+                                  isMine ? "text-emerald-100" : "text-slate-400"
+                                }`}
+                              >
+                                {formatShortTime(message.createdAt)}
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      );
-                    })
-                  )}
-                </div>
-
-                <div className="rounded-[1.5rem] border border-dashed border-slate-200 bg-slate-50 px-4 py-4 text-sm text-slate-500">
-                  {locationMessages.length > 0
-                    ? "Haz click en cualquier bloque de ubicación compartida para abrir el mapa en un modal sin mover el hilo."
-                    : "Cuando alguien comparta su ubicación desde el chat, podrás abrir el mapa en un modal desde ese mensaje."}
-                </div>
-
-                <form
-                  onSubmit={handleSendMessage}
-                  className="rounded-[1.75rem] border border-slate-100 bg-slate-50/80 p-4"
-                >
-                  <div className="flex flex-col gap-4 lg:flex-row lg:items-end">
-                    <div className="flex-1">
-                      <label className="text-sm font-semibold text-slate-900">
-                        Respuesta rápida
-                      </label>
-                      <p className="mt-1 text-sm text-slate-500">
-                        El historial queda almacenado y se actualiza en tiempo
-                        real para los participantes del hilo.
-                      </p>
-                      <textarea
-                        value={draftMessage}
-                        onChange={(event) =>
-                          setDraftMessage(event.target.value)
-                        }
-                        placeholder="Escribe aquí para coordinar la entrega, el punto de encuentro o una duda del artículo..."
-                        className="mt-3 min-h-28 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition-colors focus:border-emerald-400"
-                      />
-                    </div>
-
-                    <div className="flex gap-3 lg:flex-col">
-                      <button
-                        type="button"
-                        onClick={handleShareLocation}
-                        disabled={isSharingLocation || !selectedConversationId}
-                        className="inline-flex min-w-44 items-center justify-center gap-2 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800 transition-colors hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
-                      >
-                        {isSharingLocation ? (
-                          <LoaderCircle className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <LocateFixed className="h-4 w-4" />
-                        )}
-                        Enviar ubicación
-                      </button>
-                      <button
-                        type="submit"
-                        disabled={isSending || !draftMessage.trim()}
-                        className="inline-flex min-w-44 items-center justify-center gap-2 rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
-                      >
-                        {isSending ? (
-                          <LoaderCircle className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <Send className="h-4 w-4" />
-                        )}
-                        Contestar Mensaje
-                      </button>
-                    </div>
+                        );
+                      })
+                    )}
                   </div>
-                </form>
-              </div>
-            </>
-          )}
+
+                  <form
+                    onSubmit={handleSendMessage}
+                    className="rounded-[1.5rem] border border-slate-100 bg-slate-50/80 p-3.5"
+                  >
+                    <div className="flex flex-col gap-3 lg:flex-row lg:items-end">
+                      <div className="flex-1">
+                        <label className="text-sm font-semibold text-slate-900">
+                          Respuesta rápida
+                        </label>
+                        <p className="mt-0.5 text-xs text-slate-500">
+                          El historial queda almacenado y se actualiza en tiempo
+                          real para los participantes del hilo.
+                        </p>
+                        <textarea
+                          value={draftMessage}
+                          onChange={(event) =>
+                            setDraftMessage(event.target.value)
+                          }
+                          placeholder="Escribe aquí para coordinar la entrega, el punto de encuentro o una duda del artículo..."
+                          className="mt-2 min-h-20 w-full rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-700 outline-none transition-colors focus:border-emerald-400"
+                        />
+                      </div>
+
+                      <div className="flex gap-3 lg:flex-col">
+                        <button
+                          type="button"
+                          onClick={handleShareLocation}
+                          disabled={
+                            isSharingLocation || !selectedConversationId
+                          }
+                          className="inline-flex min-w-40 items-center justify-center gap-2 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm font-semibold text-emerald-800 transition-colors hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          {isSharingLocation ? (
+                            <LoaderCircle className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <LocateFixed className="h-4 w-4" />
+                          )}
+                          Enviar ubicación
+                        </button>
+                        <button
+                          type="submit"
+                          disabled={isSending || !draftMessage.trim()}
+                          className="inline-flex min-w-40 items-center justify-center gap-2 rounded-2xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
+                        >
+                          {isSending ? (
+                            <LoaderCircle className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Send className="h-4 w-4" />
+                          )}
+                          Contestar Mensaje
+                        </button>
+                      </div>
+                    </div>
+                  </form>
+                </div>
+              </>
+            )}
           </div>
         </div>
       </section>

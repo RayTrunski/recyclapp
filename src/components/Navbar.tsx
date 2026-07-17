@@ -4,6 +4,8 @@ import {
   User,
   LogIn,
   Bell,
+  Sun,
+  Moon,
   Shield,
   MapPin,
   BarChart3,
@@ -18,22 +20,26 @@ interface NavbarProps {
   currentUser: UserProfile | null;
   notifications: Notification[];
   activeTab: string;
+  themeMode: "light" | "dark";
   setActiveTab: (tab: string) => void;
   onLogout: () => void;
   onLoginClick: () => void;
   onNotificationRead: (notification: Notification) => void;
   onNotificationOpen: (notification: Notification) => void;
+  onThemeToggle: () => void;
 }
 
 export default function Navbar({
   currentUser,
   notifications,
   activeTab,
+  themeMode,
   setActiveTab,
   onLogout,
   onLoginClick,
   onNotificationRead,
   onNotificationOpen,
+  onThemeToggle,
 }: NavbarProps) {
   const [showNotifDropdown, setShowNotifDropdown] = useState(false);
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
@@ -41,6 +47,8 @@ export default function Navbar({
   const notificationItemRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   const unreadCount = notifications.filter((n) => !n.read).length;
+  const ThemeIcon = themeMode === "light" ? Sun : Moon;
+  const themeLabel = themeMode === "light" ? "Modo claro" : "Modo oscuro";
   const notificationLookup = useMemo(
     () => Object.fromEntries(notifications.map((notification) => [notification.id, notification])),
     [notifications],
@@ -116,9 +124,9 @@ export default function Navbar({
               className="h-10 w-auto object-contain"
             />
             <img
-              src="/logos/logoTexto.png"
+              src="/logos/recyclappTexto.png"
               alt="ReCyClapp"
-              className="h-8 w-auto object-contain"
+              className="h-10 w-auto object-contain"
             />
           </div>
 
@@ -158,7 +166,17 @@ export default function Navbar({
           </nav>
 
           {/* Right Action buttons */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 lg:ml-6 xl:ml-8">
+            <button
+              type="button"
+              onClick={onThemeToggle}
+              aria-label={`Cambiar tema. Actual: ${themeLabel}`}
+              title={`Cambiar tema. Actual: ${themeLabel}`}
+              className="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white/90 p-2.5 text-slate-600 shadow-xs transition-all hover:border-emerald-200 hover:text-emerald-700 hover:bg-emerald-50/70"
+            >
+              <ThemeIcon className="h-4 w-4" />
+            </button>
+
             {/* Notification drop */}
             <div className="relative">
               <button

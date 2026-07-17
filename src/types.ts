@@ -223,3 +223,57 @@ export interface WasteCenter {
   xRatio: number; // For plotting on our interactive map (0 to 100)
   yRatio: number; // For plotting on our interactive map (0 to 100)
 }
+
+export interface GamificationMessage {
+  eventType: string;
+  category: "impact" | "achievement" | "next_step";
+  title: string;
+  message: string;
+  badgeCode: string | null;
+  currentValue: number;
+  targetValue: number;
+  remainingValue: number;
+}
+
+export interface BadgeProgress {
+  code: string;
+  title: string;
+  eventType: string;
+  currentValue: number;
+  targetValue: number;
+  remainingValue: number;
+  progressRatio: number;
+}
+
+export interface UserBadge {
+  code: string;
+  title: string;
+  eventType: string;
+  unlockedAtValue: number;
+}
+
+export interface UserStatsMetrics {
+  recoveredItems: number;
+  completedDeliveries: number;
+  sharedLocations: number;
+  itemsPublished: number;
+  requestsReceived: number;
+  repairsStarted: number;
+  repairedItems: number;
+  donatedItems: number;
+  recycledItems: number;
+  appliancePublications: number;
+  positiveRatings: number;
+  activityDays: number;
+  profileCompletion: number;
+  co2SavedKg: number;
+}
+
+export interface UserStatsResponse {
+  metrics: UserStatsMetrics;
+  impact: GamificationMessage;
+  achievement: GamificationMessage;
+  nextStep: GamificationMessage;
+  unlockedBadges: UserBadge[];
+  nextBadge: BadgeProgress | null;
+}
