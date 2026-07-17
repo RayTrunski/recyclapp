@@ -994,24 +994,22 @@ export default function MessagingModule({
                     )}
                   </div>
 
-                  <form
-                    onSubmit={handleSendMessage}
-                    className="rounded-[1.5rem] border border-slate-100 bg-slate-50/80 p-3.5"
-                  >
+                  <form onSubmit={handleSendMessage} className="pt-1">
                     <div className="flex flex-col gap-3 lg:flex-row lg:items-end">
                       <div className="flex-1">
-                        <label className="text-sm font-semibold text-slate-900">
-                          Respuesta rápida
-                        </label>
-                        <p className="mt-0.5 text-xs text-slate-500">
-                          El historial queda almacenado y se actualiza en tiempo
-                          real para los participantes del hilo.
-                        </p>
+                        <label className="text-sm font-semibold text-slate-900"></label>
+                        <p className="mt-0.5 text-xs text-slate-500"></p>
                         <textarea
                           value={draftMessage}
                           onChange={(event) =>
                             setDraftMessage(event.target.value)
                           }
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter" && !event.shiftKey) {
+                              event.preventDefault();
+                              event.currentTarget.form?.requestSubmit();
+                            }
+                          }}
                           placeholder="Escribe aquí para coordinar la entrega, el punto de encuentro o una duda del artículo..."
                           className="mt-2 min-h-20 w-full rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-700 outline-none transition-colors focus:border-emerald-400"
                         />
