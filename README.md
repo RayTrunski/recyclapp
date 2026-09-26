@@ -124,18 +124,3 @@ Este proyecto está pensado como una base demostrativa pero seria:
 - los módulos ya intercambian datos reales
 - la arquitectura está separada para poder crecer sin rehacer todo
 
-Si alguien llega por primera vez al repo, la recomendación es:
-
-1. leer este `README`
-2. revisar la estructura de carpetas
-3. abrir `docs/` según el tema que necesite
-
-## Próximo paso recomendado
-
-Después de este README, la siguiente mejora natural es ordenar y ampliar la documentación de `docs/` para que quede separada por:
-
-- arquitectura
-- autenticación
-- mensajería y geolocalización
-- datos y migraciones
-- operación del demo
